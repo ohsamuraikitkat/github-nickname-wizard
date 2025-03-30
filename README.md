@@ -2,7 +2,7 @@
 
 A simple Chrome extension to customize how GitHub usernames are displayed in your browser.
 
-Replace GitHub usernames with nicknames you set, making it easier to identify users at a glance.
+Add nicknames to GitHub usernames so you can recognize people more easily.
 
 ---
 

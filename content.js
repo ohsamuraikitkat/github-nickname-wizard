@@ -22,7 +22,7 @@
           const username = originalAriaLabel;
 
           if (username && mapping[username]) {
-            const newNicknameText = `${username}（${mapping[username]}）`;
+            const newNicknameText = `${username} ( ${mapping[username]} ) `;
             tooltipEl.setAttribute('aria-label', newNicknameText);
             if (tooltipEl.hasAttribute('data-visible-text')) {
                 tooltipEl.setAttribute('data-visible-text', newNicknameText);
@@ -112,7 +112,7 @@
         if (foundTooltip) {
           // console.log('[Assignee Delegate DEBUG] ---> Likely tooltip element identified:', foundTooltip);
           if (mapping[plainUsername]) {
-            const newNicknameText = `${usernameWithAt}（${mapping[plainUsername]}）`;
+            const newNicknameText = `${usernameWithAt} ( ${mapping[plainUsername]} ) `;
             // console.log('[Assignee Delegate DEBUG] Attempting to modify identified tooltip with:', newNicknameText);
             if (foundTooltip.hasAttribute('aria-label')) {
               foundTooltip.setAttribute('aria-label', newNicknameText);
@@ -131,7 +131,7 @@
         } else {
           // console.log('[Assignee Delegate DEBUG] ---> No likely tooltip element identified containing the username after timeout.');
           if (mapping[plainUsername]) {
-             const newAltString = `${usernameWithAt}（${mapping[plainUsername]}）`;
+             const newAltString = `${usernameWithAt} ( ${mapping[plainUsername]} ) `;
              // console.log('[Assignee Delegate DEBUG] Fallback: Attempting to modify img alt attribute.');
              imgEl.setAttribute('alt', newAltString);
           }
@@ -170,14 +170,14 @@
         username &&
         mapping[username] &&
         /^\/[^/]+\/?$/.test(href) &&
-        !el.textContent.includes(`（${mapping[username]}）`)
+        !el.textContent.includes(` ( ${mapping[username]} ) `)
       ) {
         if (el.textContent.trim() === username) {
-          el.textContent = `${username}（${mapping[username]}）`;
+          el.textContent = `${username} ( ${mapping[username]} ) `;
         } else if (el.textContent.includes(username)) {
           el.textContent = el.textContent.replace(
             new RegExp(`\\b${username}\\b`, 'g'),
-            `${username}（${mapping[username]}）`
+            `${username} ( ${mapping[username]} ) `
           );
         }
         el.setAttribute('data-nickname-injected', 'true');
@@ -203,9 +203,9 @@
       const username = el.textContent.trim();
       if (
         mapping[username] &&
-        !el.textContent.includes(`（${mapping[username]}）`)
+        !el.textContent.includes(` ( ${mapping[username]} ) `)
       ) {
-        el.textContent = `${username}（${mapping[username]}）`;
+        el.textContent = `${username} ( ${mapping[username]} ) `;
         el.setAttribute('data-nickname-injected', 'true');
       }
     });
@@ -237,8 +237,8 @@
           if (node.nodeType === Node.TEXT_NODE && node.nodeValue.trim().length > 0) {
             const currentText = node.nodeValue.trim();
             // Avoid double appending if already somehow contains the alias structure
-            if (!currentText.includes(`（${mapping[username]}）`)){
-                 node.nodeValue = `${currentText}（${mapping[username]}）`;
+            if (!currentText.includes(` ( ${mapping[username]} ) `)){
+                 node.nodeValue = `${currentText} ( ${mapping[username]} ) `;
                  textNodeFoundAndModified = true;
             }
           }
