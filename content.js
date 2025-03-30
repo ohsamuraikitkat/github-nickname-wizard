@@ -14,8 +14,8 @@
   // 厳格モード設定の保持
   let strictModeSettings = strictMode;
   
-  // マッピング参照用変数
-  const mapping = nameMapping;
+  // マッピング参照用変数（更新可能にする）
+  let mapping = nameMapping;
 
   // --- URLパターンマッチング関数 ---
   function isUrlMatched(url, pattern) {
@@ -358,6 +358,8 @@
 
   // --- 設定変更のリスナー ---
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    console.log('コンテンツスクリプトがメッセージを受信:', message);
+    
     if (message.action === 'strictModeUpdated') {
       strictModeSettings = message.settings;
       
@@ -374,6 +376,70 @@
         injectNicknames();
         processOrgMemberLinks(mapping);
       }
+      
+      // 応答を返す
+      sendResponse({ success: true });
     }
+    // コンテキストメニューからニックネームが追加された場合の処理
+    else if (message.action === 'refreshNicknames') {
+      console.log('ニックネーム更新メッセージを受信:', message);
+      const username = message.username;
+      const nickname = message.nickname;
+      
+      // マッピング更新
+      if (username && nickname) {
+        try {
+          // マッピングを更新
+          chrome.storage.local.get('nameMapping', (data) => {
+            console.log('ストレージから最新のマッピングを取得:', data);
+            mapping = data.nameMapping || {};
+            
+            // すでに処理済みの要素のマークを削除して再適用
+            try {
+              const selector = `a[href="/${username}"], a[href="/${username}/"], a[data-hovercard-type="user"]`;
+              document.querySelectorAll(selector).forEach(el => {
+                if (el.getAttribute('data-nickname-injected')) {
+                  el.removeAttribute('data-nickname-injected');
+                }
+              });
+              
+              // ツールチップのマークも削除
+              document.querySelectorAll('[data-tooltip-modified], [data-assignee-tooltip-modified]').forEach(el => {
+                el.removeAttribute('data-tooltip-modified');
+                el.removeAttribute('data-assignee-tooltip-modified');
+              });
+              
+              // 再処理
+              processAvatars();
+              injectNicknames();
+              processOrgMemberLinks(mapping);
+              
+              // 成功メッセージをコンソールに表示
+              console.log(`GitHub Nickname Wizard: ニックネームを追加しました - @${username} → ${nickname}`);
+              
+              // 応答を返す
+              sendResponse({ success: true, message: 'ニックネームが更新されました' });
+            } catch (error) {
+              console.error('DOM要素の更新中にエラーが発生しました:', error);
+              sendResponse({ success: false, error: error.message });
+            }
+          });
+        } catch (error) {
+          console.error('ストレージ操作中にエラーが発生しました:', error);
+          sendResponse({ success: false, error: error.message });
+        }
+        
+        // 非同期応答を許可するためにtrueを返す
+        return true;
+      } else {
+        sendResponse({ success: false, message: 'ユーザー名またはニックネームが不足しています' });
+      }
+    } else {
+      // 不明なアクション
+      sendResponse({ success: false, message: '不明なアクション' });
+    }
+    
+    // 非同期応答を許可するためにtrueを返す
+    return true;
   });
 })();

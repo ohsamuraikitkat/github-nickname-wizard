@@ -16,7 +16,10 @@ A browser extension that enhances GitHub by adding nicknames to usernames, makin
   * Inside Issues and Pull Requests
 
 **Management Features:**
-* Easy management of nicknames (add, edit, delete)
+* Nickname addition methods:
+  * Add through the extension popup UI
+  * **Context menu direct registration**: Easily register nicknames by right-clicking on selected usernames on GitHub
+* Easy management of existing nicknames (edit, delete)
 * Import/Export capabilities: Save your nickname mappings to a JSON file and import them later
 * Strict Mode: Restrict the extension to only run on trusted URLs with support for wildcards and regex patterns
 
@@ -33,11 +36,17 @@ A browser extension that enhances GitHub by adding nicknames to usernames, makin
 
 ## 🧩 Usage
 
-**Adding Nicknames:**
+**Adding Nicknames (via popup):**
 1. Click the extension icon in your browser toolbar to open the popup
 2. Enter a GitHub username (without the `@` symbol)
 3. Enter your preferred nickname (e.g., "John Doe")
 4. Click the "Add" button
+
+**Adding Nicknames (via context menu):**
+1. Select any GitHub username on a page (with or without the `@` symbol)
+2. Right-click on the selected text and choose "Register nickname for this username"
+3. Enter a nickname in the popup window that appears (the user's real name is automatically suggested from their GitHub profile if available)
+4. Click the "Save" button
 
 **Import/Export Settings:**
 1. Click "Export Settings" to save your current nicknames, custom sort order, and theme to a `config.json` file
@@ -59,9 +68,12 @@ A browser extension that enhances GitHub by adding nicknames to usernames, makin
 ```
 github-nickname-wizard/
 ├── manifest.json      # Chrome extension manifest file
+├── background.js      # Background script (context menu handling, etc.)
 ├── content.js         # Script that modifies the GitHub DOM to inject nicknames
 ├── popup.html         # Popup UI for the extension icon
 ├── popup.js           # Logic for the popup UI
+├── quick-add.html     # Quick add UI triggered from context menu
+├── quick-add.js       # Logic for the quick add UI
 ├── config.json        # Configuration file (when used for default settings)
 └── icon.png           # Extension icon image
 ```
@@ -75,12 +87,20 @@ github-nickname-wizard/
 * Uses `MutationObserver` to monitor page content changes and process dynamically loaded elements
 * Stores name mappings and settings in `chrome.storage.local`
 * Provides an intuitive popup UI for managing nicknames and settings
+* Context menu implementation allows for quick username registration right from GitHub pages
+* Leverages GitHub's public API to automatically suggest real names for users as nickname candidates
 * In Strict Mode, checks if the current URL matches registered patterns and only displays nicknames on matching pages
 * Supports three URL matching methods: exact match, wildcard patterns, and regular expressions
+* Enhanced security with proper Content Security Policy implementation for Manifest V3 compliance
 
 ---
 
 ## 📝 Release History
+
+### v1.2.0 (2025-03-30)
+* Added context menu functionality for direct nickname registration
+* Implemented automatic real name suggestion using GitHub's public API
+* Enhanced security with Content Security Policy compliance for Manifest V3
 
 ### v1.1.0 (2025-03-30)
 * Added Strict Mode to limit extension operation to trusted URLs only
