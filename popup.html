@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>GitHub Nickname Wizard</title>
+  <style>
+    :root {
+      --primary-color: #0366d6;
+      --success-color: #28a745;
+      --danger-color: #dc3545;
+      --border-color: #e1e4e8;
+      --bg-color: #ffffff;
+      --text-color: #24292e;
+      --hover-bg: #f6f8fa;
+      --button-bg: #2ea44f;
+      --button-hover: #2c974b;
+      --button-text: #ffffff;
+      --danger-bg: #d73a49;
+      --danger-hover: #cb2431;
+      --success-bg: #28a745;
+      --success-hover: #22863a;
+      --input-bg: #ffffff;
+      --input-border: #e1e4e8;
+      --input-text: #24292e;
+      --table-header-bg: #f6f8fa;
+      --table-border: #e1e4e8;
+      --sort-icon-color: #6a737d;
+      --drag-handle-color: #6a737d;
+      --checkbox-border: #e1e4e8;
+      --checkbox-checked: #2ea44f;
+      --bulk-actions-bg: #f6f8fa;
+      --empty-state-color: #6a737d;
+    }
+
+    [data-theme="dark"] {
+      --text-color: #c9d1d9;
+      --bg-color: #0d1117;
+      --border-color: #30363d;
+      --hover-bg: #161b22;
+      --button-bg: #238636;
+      --button-hover: #2ea043;
+      --button-text: #ffffff;
+      --danger-bg: #da3633;
+      --danger-hover: #f85149;
+      --success-bg: #238636;
+      --success-hover: #2ea043;
+      --input-bg: #0d1117;
+      --input-border: #30363d;
+      --input-text: #c9d1d9;
+      --table-header-bg: #161b22;
+      --table-border: #30363d;
+      --sort-icon-color: #8b949e;
+      --drag-handle-color: #8b949e;
+      --checkbox-border: #30363d;
+      --checkbox-checked: #238636;
+      --bulk-actions-bg: #161b22;
+      --empty-state-color: #8b949e;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      padding: 16px;
+      width: 600px;
+      color: var(--text-color);
+      background-color: var(--bg-color);
+    }
+
+    h3 {
+      margin: 0 0 16px 0;
+      color: var(--primary-color);
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h3 img {
+      width: 24px;
+      height: 24px;
+    }
+
+    .section {
+      margin-bottom: 24px;
+      background: var(--bg-color);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 16px;
+    }
+
+    .section-title {
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text-color);
+      font-size: 14px;
+    }
+
+    .form-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    input {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid var(--input-border);
+      border-radius: 4px;
+      font-size: 14px;
+      background-color: var(--input-bg);
+      color: var(--input-text);
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+    }
+
+    .button-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    button {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    button.primary {
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    button.primary:hover {
+      background-color: #0245a3;
+    }
+
+    button.success {
+      background-color: var(--success-color);
+      color: white;
+    }
+
+    button.success:hover {
+      background-color: #218838;
+    }
+
+    button.danger {
+      background-color: var(--danger-color);
+      color: white;
+    }
+
+    button.danger:hover {
+      background-color: #c82333;
+    }
+
+    .mappings-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+
+    .mappings-table th,
+    .mappings-table td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .mappings-table th {
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--text-color);
+      background-color: var(--table-header-bg);
+    }
+
+    .mappings-table tr:hover {
+      background-color: var(--hover-bg);
+    }
+
+    .checkbox-cell {
+      width: 40px;
+      text-align: center;
+    }
+
+    .checkbox-cell input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .mappings-table th:nth-child(2),
+    .mappings-table td:nth-child(2) {
+      width: 40px;
+    }
+
+    .mappings-table th:nth-child(3),
+    .mappings-table td:nth-child(3) {
+      width: 45%;
+    }
+
+    .mappings-table th:nth-child(4),
+    .mappings-table td:nth-child(4) {
+      width: 45%;
+    }
+
+    .mappings-table th:nth-child(5),
+    .mappings-table td:nth-child(5) {
+      width: 100px;
+      text-align: right;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .bulk-actions {
+      display: none;
+      margin-top: 10px;
+      padding: 10px;
+      background: var(--bulk-actions-bg);
+      border-radius: 4px;
+      text-align: right;
+    }
+
+    .bulk-actions.visible {
+      display: block;
+    }
+
+    .bulk-actions button {
+      padding: 6px 12px;
+      background: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .bulk-actions button:hover {
+      background: #c82333;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 24px;
+      color: var(--empty-state-color);
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--border-color);
+      margin: 16px 0;
+    }
+
+    /* ソート機能のスタイル */
+    .sortable {
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      padding-right: 20px;
+    }
+
+    .sortable:hover {
+      background-color: #eaecef;
+    }
+
+    .sort-icon {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      color: var(--sort-icon-color);
+    }
+
+    .realname-edit {
+      width: 100%;
+      padding: 4px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .realname-edit:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+    }
+
+    /* フィルタリング機能のスタイル */
+    .filter-section {
+      margin-bottom: 12px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .filter-input {
+      flex: 1;
+    }
+
+    .filter-input input {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .filter-input input:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+    }
+
+    .filter-input input::placeholder {
+      color: var(--empty-state-color);
+    }
+
+    .filter-clear {
+      padding: 6px 8px;
+      background: none;
+      border: none;
+      color: var(--empty-state-color);
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .filter-clear:hover {
+      color: var(--danger-color);
+    }
+
+    /* カスタムソート機能のスタイル */
+    .custom-sort {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .custom-sort button {
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+
+    .custom-sort .save-order {
+      display: none;
+    }
+
+    .custom-sort .save-order.active {
+      display: inline-block;
+    }
+
+    .drag-handle {
+      cursor: move;
+      color: var(--drag-handle-color);
+      padding: 0 4px;
+    }
+
+    .drag-handle:hover {
+      color: var(--primary-color);
+    }
+
+    .dragging {
+      opacity: 0.5;
+      background-color: #f6f8fa;
+    }
+
+    .theme-switch {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .theme-switch button {
+      background: none;
+      border: none;
+      padding: 4px;
+      cursor: pointer;
+      color: var(--text-color);
+      font-size: 16px;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+
+    .theme-switch button:hover {
+      background-color: var(--hover-bg);
+    }
+
+    .theme-switch button.active {
+      background-color: var(--hover-bg);
+    }
+  </style>
+</head>
+<body>
+  <h3>
+    <img src="icon.png" alt="Extension Icon">
+    GitHub Nickname Wizard
+  </h3>
+  
+  <div class="theme-switch">
+    <button id="lightTheme" class="active" title="Light Theme">☀️</button>
+    <button id="darkTheme" title="Dark Theme">🌙</button>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Add New Nickname</div>
+    <div class="form-group">
+      <input type="text" id="username" placeholder="GitHub Username (without @)" />
+      <input type="text" id="nickname" placeholder="Nickname (e.g. John Doe)" />
+    </div>
+    <button id="add" class="primary">Add</button>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Search Nicknames</div>
+    <div class="filter-section">
+      <div class="filter-input">
+        <input type="text" id="filterInput" placeholder="Search by GitHub username or nickname..." />
+      </div>
+      <button class="filter-clear" id="clearFilter">×</button>
+    </div>
+    <div class="custom-sort">
+      <button id="toggleCustomSort" class="primary">Custom Sort</button>
+      <button id="saveCustomOrder" class="success save-order">Save Order</button>
+    </div>
+    <div id="list"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Import/Export Settings</div>
+    <input type="file" id="presetFile" accept=".json" />
+    <div class="button-group">
+      <button id="loadPreset" class="primary">Import</button>
+      <button id="exportPreset" class="success">Export</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
