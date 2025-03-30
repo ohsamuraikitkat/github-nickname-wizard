@@ -1,14 +1,72 @@
 // --- このファイルには強制リロード処理は含まれない ---
 
 (async () => {
-  const mapping = await new Promise(resolve => {
-    chrome.storage.local.get('nameMapping', (data) => {
-      resolve(data.nameMapping || {});
+  // 厳格モード設定の読み込み
+  const { nameMapping, strictMode } = await new Promise(resolve => {
+    chrome.storage.local.get(['nameMapping', 'strictMode'], (data) => {
+      resolve({
+        nameMapping: data.nameMapping || {},
+        strictMode: data.strictMode || { enabled: false, urlPatterns: [] }
+      });
     });
   });
 
+  // 厳格モード設定の保持
+  let strictModeSettings = strictMode;
+  
+  // マッピング参照用変数
+  const mapping = nameMapping;
+
+  // --- URLパターンマッチング関数 ---
+  function isUrlMatched(url, pattern) {
+    // 正規表現パターン
+    if (pattern.startsWith('regex:')) {
+      try {
+        const regexPattern = pattern.substring(6);
+        const regex = new RegExp(regexPattern);
+        return regex.test(url);
+      } catch (error) {
+        console.error(`Invalid regex pattern: ${pattern}`, error);
+        return false;
+      }
+    }
+    
+    // ワイルドカードパターン (*.github.com/org-name)
+    if (pattern.includes('*')) {
+      const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regexPattern = escapeRegExp(pattern).replace(/\\\*/g, '.*');
+      const regex = new RegExp(`^${regexPattern}$`);
+      return regex.test(url);
+    }
+    
+    // 通常の完全一致
+    return url === pattern;
+  }
+
+  // --- 現在のURLが厳格モードのパターンにマッチするかを確認 ---
+  function shouldApplyNicknames() {
+    // 厳格モードが無効なら常に適用
+    if (!strictModeSettings.enabled) {
+      return true;
+    }
+    
+    // パターンが設定されていない場合は適用しない
+    if (!strictModeSettings.urlPatterns || strictModeSettings.urlPatterns.length === 0) {
+      return false;
+    }
+    
+    // 現在のURLを取得
+    const currentUrl = window.location.href;
+    
+    // いずれかのパターンにマッチすれば適用
+    return strictModeSettings.urlPatterns.some(pattern => isUrlMatched(currentUrl, pattern));
+  }
+
   // --- Project カンバンボード用アバター処理 ---
   const handleAvatarHover = (event) => {
+    // 厳格モードで適用すべきでない場合は何もしない
+    if (!shouldApplyNicknames()) return;
+
     const imgEl = event.currentTarget;
     const describedbyId = imgEl.getAttribute('aria-describedby');
 
@@ -37,6 +95,9 @@
   };
 
   const processAvatars = () => {
+    // 厳格モードで適用すべきでない場合は何もしない
+    if (!shouldApplyNicknames()) return;
+
     const avatarImages = document.querySelectorAll('img[data-component="Avatar"]:not([data-tooltip-listener-attached])');
     avatarImages.forEach(imgEl => {
       imgEl.addEventListener('mouseover', handleAvatarHover);
@@ -48,6 +109,9 @@
 
   // --- Assignee アバター処理 (イベント委任バージョン) ---
   const handleDelegatedAssigneeHover = (event) => {
+    // 厳格モードで適用すべきでない場合は何もしない
+    if (!shouldApplyNicknames()) return;
+
     // ホバーされた要素が目的のimg要素か、その親要素を辿って探す
     let imgEl = null;
     if (event.target.matches('img.from-avatar.avatar-user')) {
@@ -62,8 +126,6 @@
       return;
     }
 
-    // console.log('[Assignee Delegate DEBUG] Delegate hover detected for:', imgEl);
-
     // --- ここからホバー時リロードチェック --- 
     const prListPathRegex = /^\/[^/]+\/[^/]+\/pulls(\/?$|\?)/;
     const currentPath = window.location.pathname + window.location.search;
@@ -71,10 +133,8 @@
 
     if (prListPathRegex.test(currentPath)) {
       if (!sessionStorage.getItem(reloadFlag)) {
-        // console.log('[Assignee Delegate Reload] PR list & first hover. Scheduling reload...');
         sessionStorage.setItem(reloadFlag, 'true');
         setTimeout(() => {
-            // console.log('[Assignee Delegate Reload] Executing deferred location.reload()');
             location.reload();
         }, 50);
         return; // リロードするので処理中断
@@ -84,36 +144,28 @@
 
     // --- 既存のツールチップ処理ロジック (imgEl を使う) ---
     const originalAlt = imgEl.getAttribute('alt');
-    // console.log('[Assignee Delegate DEBUG] Original alt:', originalAlt);
 
     if (originalAlt && !imgEl.getAttribute('data-assignee-processed')) {
       const usernameWithAt = originalAlt;
       const plainUsername = usernameWithAt.startsWith('@') ? usernameWithAt.substring(1) : usernameWithAt;
-      // console.log('[Assignee Delegate DEBUG] Plain username:', plainUsername);
-      // console.log('[Assignee Delegate DEBUG] Mapping exists?:', !!mapping[plainUsername]);
 
       imgEl.setAttribute('data-assignee-processed', 'true');
 
       setTimeout(() => {
-        // console.log(`[Assignee Delegate DEBUG] Searching for tooltip after timeout (alt: ${originalAlt})`);
         let potentialTooltips = document.querySelectorAll('.tooltipped, [role="tooltip"], .Tooltip');
-        // console.log(`[Assignee Delegate DEBUG] Found ${potentialTooltips.length} potential tooltips globally`);
         let foundTooltip = null;
         potentialTooltips.forEach(tip => {
           const tipAriaLabel = tip.getAttribute('aria-label');
           const tipTextContent = tip.textContent;
           const containsUsername = (tipAriaLabel && tipAriaLabel.includes(plainUsername)) || (tipTextContent && tipTextContent.includes(plainUsername));
           if (containsUsername && tip.offsetWidth > 0 && !tip.getAttribute('data-assignee-tooltip-modified')) {
-             // console.log('[Assignee Delegate DEBUG] Potential tooltip found:', tip, 'textContent:', tipTextContent, 'aria-label:', tipAriaLabel);
              if (!foundTooltip) foundTooltip = tip;
           }
         });
 
         if (foundTooltip) {
-          // console.log('[Assignee Delegate DEBUG] ---> Likely tooltip element identified:', foundTooltip);
           if (mapping[plainUsername]) {
             const newNicknameText = `${usernameWithAt} ( ${mapping[plainUsername]} ) `;
-            // console.log('[Assignee Delegate DEBUG] Attempting to modify identified tooltip with:', newNicknameText);
             if (foundTooltip.hasAttribute('aria-label')) {
               foundTooltip.setAttribute('aria-label', newNicknameText);
               if (foundTooltip.hasAttribute('data-visible-text')) {
@@ -125,25 +177,16 @@
                foundTooltip.setAttribute('data-assignee-tooltip-modified', 'true');
             }
           } else {
-            // console.log('[Assignee Delegate DEBUG] Mapping not found for identified tooltip user.');
             foundTooltip.setAttribute('data-assignee-tooltip-modified', 'true');
           }
         } else {
-          // console.log('[Assignee Delegate DEBUG] ---> No likely tooltip element identified containing the username after timeout.');
           if (mapping[plainUsername]) {
              const newAltString = `${usernameWithAt} ( ${mapping[plainUsername]} ) `;
-             // console.log('[Assignee Delegate DEBUG] Fallback: Attempting to modify img alt attribute.');
              imgEl.setAttribute('alt', newAltString);
           }
         }
         imgEl.removeAttribute('data-assignee-processed');
-        // console.log('[Assignee Delegate DEBUG] Processed flag removed from image.');
       }, 150);
-
-    } else if (imgEl.getAttribute('data-assignee-processed')) {
-      // console.log('[Assignee Delegate DEBUG] Image already being processed (timeout pending).');
-    } else {
-      // console.log('[Assignee Delegate DEBUG] Alt attribute is missing or empty.');
     }
   };
 
@@ -156,10 +199,8 @@
 
   // --- 元々のリンク置換処理 ---
   const injectNicknames = () => {
-    // Skip processing on team member pages as it's handled by processTeamMemberLinks
-    // Although the data-realname-injected check should prevent duplicates,
-    // this might offer a slight performance improvement.
-    // if (isTeamMemberPage()) return; // Optional optimization
+    // 厳格モードで適用すべきでない場合は何もしない
+    if (!shouldApplyNicknames()) return;
 
     // 一般ユーザーリンク
     const allUserLinks = document.querySelectorAll('a[href^="/"]:not([data-nickname-injected])');
@@ -193,7 +234,6 @@
       '.js-pull-request-row a[data-hovercard-type="user"]',
       'a[data-hovercard-url^="/users/"]:not([data-nickname-injected])',
       '.issue-item-module__authorCreatedLink--wFZvk'
-      // Exclude links already processed or specific to team pages if necessary
     ].join(','));
     openedByLinks.forEach(el => {
        // Check if already processed by team member logic
@@ -213,6 +253,9 @@
 
   // --- Processing for Org Team Member & People List Links ---
   const processOrgMemberLinks = (mapping) => {
+    // 厳格モードで適用すべきでない場合は何もしない
+    if (!shouldApplyNicknames()) return;
+    
     if (!isOrgMemberListPage()) {
       return;
     }
@@ -251,20 +294,22 @@
       }
     });
   };
-  // --- Org Member Link Processing End ---
 
   // --- 初期実行 ---
-  processAvatars();
-  // processAssigneeAvatars の呼び出しは削除
-  injectNicknames();
-  processOrgMemberLinks(mapping); // ★ Call the renamed function
+  if (shouldApplyNicknames()) {
+    processAvatars();
+    injectNicknames();
+    processOrgMemberLinks(mapping);
+  }
 
   // --- MutationObserver 設定 ---
   const observerCallback = (mutationsList) => {
+    // 厳格モードで適用すべきでない場合は何もしない
+    if (!shouldApplyNicknames()) return;
+
     let runOriginalInject = false;
     let runAvatarProcessing = false;
-    let runOrgMemberProcessing = false; // ★ Renamed Flag
-    // let runAssigneeAvatarProcessing = false; // Assignee 個別処理フラグは不要に
+    let runOrgMemberProcessing = false;
 
     for(const mutation of mutationsList) {
         if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
@@ -274,44 +319,61 @@
                     if (node.matches('img[data-component="Avatar"]') || node.querySelector('img[data-component="Avatar"]')) {
                         runAvatarProcessing = true;
                     }
-                    // ★ Check if added nodes might contain org member links using the renamed function
                     if (isOrgMemberListPage() && (node.matches('a[data-hovercard-type="user"][href^="/orgs/"]') || node.querySelector('a[data-hovercard-type="user"][href^="/orgs/"]'))) {
-                        runOrgMemberProcessing = true; // ★ Use renamed flag
+                        runOrgMemberProcessing = true;
                     }
-                    // Assignee アバターの個別チェックは不要になる
                 }
             });
         }
         else if (mutation.type === 'characterData') {
-             // Potentially relevant if profile names change, but might be too broad.
-             // Consider if characterData changes should trigger team member processing.
-             // For now, only trigger original inject.
              runOriginalInject = true;
         }
         // Exit early if all flags are set
-        if (runOriginalInject && runAvatarProcessing && runOrgMemberProcessing) break; // ★ Use renamed flag
+        if (runOriginalInject && runAvatarProcessing && runOrgMemberProcessing) break;
     }
 
     if (runAvatarProcessing) {
         processAvatars();
     }
-    // processAssigneeAvatars の呼び出しは削除
     if (runOriginalInject) {
         injectNicknames();
     }
-    if (runOrgMemberProcessing) { // ★ Call renamed function using renamed flag
+    if (runOrgMemberProcessing) {
         processOrgMemberLinks(mapping);
     }
   };
+  
   const observer = new MutationObserver(observerCallback);
   observer.observe(document.body, {
     childList: true,
     subtree: true,
-    characterData: true // Keep monitoring characterData for general updates
+    characterData: true
   });
 
   // --- イベント委任リスナーの設定 ---
-  // console.log('[Initialization] Setting up delegated mouseenter listener for assignee avatars.');
-  document.body.addEventListener('mouseenter', handleDelegatedAssigneeHover, true); // ★ Captureフェーズで設定
+  document.body.addEventListener('mouseenter', (event) => {
+    // 厳格モードチェックはハンドラ内で行う
+    handleDelegatedAssigneeHover(event);
+  }, true);
 
+  // --- 設定変更のリスナー ---
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'strictModeUpdated') {
+      strictModeSettings = message.settings;
+      
+      // 設定が変更されたら、すべてのマークを削除して再適用
+      if (shouldApplyNicknames()) {
+        document.querySelectorAll('[data-nickname-injected], [data-tooltip-modified], [data-assignee-tooltip-modified]').forEach(el => {
+          el.removeAttribute('data-nickname-injected');
+          el.removeAttribute('data-tooltip-modified');
+          el.removeAttribute('data-assignee-tooltip-modified');
+        });
+        
+        // 再処理
+        processAvatars();
+        injectNicknames();
+        processOrgMemberLinks(mapping);
+      }
+    }
+  });
 })();

@@ -7,6 +7,13 @@ const clearFilterButton = document.getElementById('clearFilter');
 const toggleCustomSortButton = document.getElementById('toggleCustomSort');
 const saveCustomOrderButton = document.getElementById('saveCustomOrder');
 
+// 厳格モード関連の要素
+const strictModeToggle = document.getElementById('strictModeToggle');
+const strictModeControls = document.getElementById('strictModeControls');
+const urlPatternInput = document.getElementById('urlPattern');
+const addUrlPatternButton = document.getElementById('addUrlPattern');
+const urlPatternsList = document.getElementById('urlPatternsList');
+
 // ソート状態を管理
 let sortState = {
   column: 'username',
@@ -21,6 +28,12 @@ let filterState = {
 
 // カスタムソート順を管理
 let customOrder = [];
+
+// 厳格モードの設定を管理
+let strictModeSettings = {
+  enabled: false,
+  urlPatterns: []
+};
 
 // テーマ関連の要素
 const lightThemeButton = document.getElementById('lightTheme');
@@ -269,6 +282,89 @@ function updateBulkActionsVisibility() {
   bulkActionsContainer.classList.toggle('visible', checkedBoxes.length > 0);
 }
 
+// URLパターンリストの描画関数
+function renderUrlPatterns() {
+  if (!strictModeSettings.urlPatterns || strictModeSettings.urlPatterns.length === 0) {
+    urlPatternsList.innerHTML = `
+      <div class="url-patterns-empty">
+        No URL patterns added yet. Add patterns to specify which GitHub URLs the extension should run on.
+      </div>
+    `;
+    return;
+  }
+
+  urlPatternsList.innerHTML = strictModeSettings.urlPatterns
+    .map((pattern, index) => `
+      <div class="url-pattern-item">
+        <div class="url-pattern-text">${pattern}</div>
+        <button class="url-pattern-delete" data-index="${index}">×</button>
+      </div>
+    `)
+    .join('');
+
+  // 削除ボタンのイベントリスナーを追加
+  urlPatternsList.querySelectorAll('.url-pattern-delete').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const index = parseInt(btn.getAttribute('data-index'), 10);
+      strictModeSettings.urlPatterns.splice(index, 1);
+      saveStrictModeSettings();
+      renderUrlPatterns();
+    });
+  });
+}
+
+// 厳格モード設定の保存
+function saveStrictModeSettings() {
+  chrome.storage.local.set({ strictMode: strictModeSettings }, () => {
+    // 設定が保存されたことをコンテンツスクリプトに通知
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0] && tabs[0].id) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          action: 'strictModeUpdated',
+          settings: strictModeSettings
+        });
+      }
+    });
+  });
+}
+
+// URLパターンの検証
+function validateUrlPattern(pattern) {
+  // 空のパターンをチェック
+  if (!pattern || pattern.trim() === '') {
+    return {
+      isValid: false,
+      error: 'URL pattern cannot be empty'
+    };
+  }
+  
+  // 最大長をチェック
+  if (pattern.length > 1000) {
+    return {
+      isValid: false,
+      error: 'URL pattern must be 1000 characters or less'
+    };
+  }
+
+  // 正規表現パターンをチェック
+  if (pattern.startsWith('regex:')) {
+    try {
+      const regexPart = pattern.substring(6);
+      new RegExp(regexPart);
+    } catch (error) {
+      return {
+        isValid: false,
+        error: `Invalid regular expression: ${error.message}`
+      };
+    }
+  }
+
+  return {
+    isValid: true,
+    sanitized: pattern.trim()
+  };
+}
+
 // フィルター機能のイベントリスナー
 filterInput.addEventListener('input', (e) => {
   filterState.text = e.target.value;
@@ -310,12 +406,34 @@ saveCustomOrderButton.addEventListener('click', () => {
   });
 });
 
-// 初期化時にカスタム順序を読み込む
-chrome.storage.local.get(['nameMapping', 'customOrder'], (data) => {
-  if (data.customOrder) {
-    customOrder = data.customOrder;
+// 厳格モードの切り替え
+strictModeToggle.addEventListener('change', () => {
+  strictModeSettings.enabled = strictModeToggle.checked;
+  saveStrictModeSettings();
+});
+
+// URLパターンの追加
+addUrlPatternButton.addEventListener('click', () => {
+  const pattern = urlPatternInput.value.trim();
+  const validation = validateUrlPattern(pattern);
+  
+  if (!validation.isValid) {
+    alert(validation.error);
+    return;
   }
-  renderList(data.nameMapping || {});
+  
+  // 重複チェック
+  if (strictModeSettings.urlPatterns.includes(validation.sanitized)) {
+    alert('This URL pattern already exists.');
+    return;
+  }
+  
+  strictModeSettings.urlPatterns.push(validation.sanitized);
+  saveStrictModeSettings();
+  renderUrlPatterns();
+  
+  // 入力欄をクリア
+  urlPatternInput.value = '';
 });
 
 // セキュリティ検証用の関数
@@ -438,15 +556,16 @@ function setTheme(theme) {
 // 設定のエクスポート
 document.getElementById('exportPreset').addEventListener('click', async () => {
   try {
-    const { nameMapping, customOrder, theme } = await new Promise(resolve => {
-      chrome.storage.local.get(['nameMapping', 'customOrder', 'theme'], resolve);
+    const { nameMapping, customOrder, theme, strictMode } = await new Promise(resolve => {
+      chrome.storage.local.get(['nameMapping', 'customOrder', 'theme', 'strictMode'], resolve);
     });
 
     const preset = {
       version: '1.0',
       mappings: nameMapping || {},
       customOrder: customOrder || [],
-      theme: theme || 'light'
+      theme: theme || 'light',
+      strictMode: strictMode || { enabled: false, urlPatterns: [] }
     };
 
     const blob = new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' });
@@ -512,6 +631,16 @@ document.getElementById('loadPreset').addEventListener('click', async () => {
       setTheme(preset.theme);
     }
 
+    // 厳格モード設定の更新
+    if (preset.strictMode) {
+      strictModeSettings = preset.strictMode;
+      await new Promise(resolve => {
+        chrome.storage.local.set({ strictMode: strictModeSettings }, resolve);
+      });
+      strictModeToggle.checked = strictModeSettings.enabled;
+      renderUrlPatterns();
+    }
+
     // リストを更新
     renderList(sanitizedMappings);
     alert('Settings imported successfully.');
@@ -526,4 +655,20 @@ function render() {
   });
 }
 
-render();
+// 初期化 - 保存された設定の読み込み
+chrome.storage.local.get(['nameMapping', 'customOrder', 'strictMode'], (data) => {
+  // ニックネームマッピングとカスタムソート順の読み込み
+  if (data.customOrder) {
+    customOrder = data.customOrder;
+  }
+  
+  // 厳格モード設定の読み込み
+  if (data.strictMode) {
+    strictModeSettings = data.strictMode;
+    strictModeToggle.checked = strictModeSettings.enabled;
+  }
+  
+  // 初期描画
+  renderList(data.nameMapping || {});
+  renderUrlPatterns();
+});
