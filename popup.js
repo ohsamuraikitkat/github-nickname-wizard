@@ -14,6 +14,9 @@ const urlPatternInput = document.getElementById('urlPattern');
 const addUrlPatternButton = document.getElementById('addUrlPattern');
 const urlPatternsList = document.getElementById('urlPatternsList');
 
+// ユーザーカードボタン設定関連の要素
+const userCardButtonToggle = document.getElementById('userCardButtonToggle');
+
 // ソート状態を管理
 let sortState = {
   column: 'username',
@@ -33,6 +36,11 @@ let customOrder = [];
 let strictModeSettings = {
   enabled: false,
   urlPatterns: []
+};
+
+// ユーザーカードボタンの設定を管理
+let userCardButtonSettings = {
+  enabled: true
 };
 
 // テーマ関連の要素
@@ -655,8 +663,29 @@ function render() {
   });
 }
 
+// ユーザーカードボタンの切り替え
+userCardButtonToggle.addEventListener('change', () => {
+  userCardButtonSettings.enabled = userCardButtonToggle.checked;
+  saveUserCardButtonSettings();
+});
+
+// ユーザーカードボタン設定の保存
+function saveUserCardButtonSettings() {
+  chrome.storage.local.set({ userCardButtonSettings }, () => {
+    // 設定が保存されたことをコンテンツスクリプトに通知
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0] && tabs[0].id) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          action: 'userCardButtonSettingsUpdated',
+          settings: userCardButtonSettings
+        });
+      }
+    });
+  });
+}
+
 // 初期化 - 保存された設定の読み込み
-chrome.storage.local.get(['nameMapping', 'customOrder', 'strictMode'], (data) => {
+chrome.storage.local.get(['nameMapping', 'customOrder', 'strictMode', 'userCardButtonSettings'], (data) => {
   // ニックネームマッピングとカスタムソート順の読み込み
   if (data.customOrder) {
     customOrder = data.customOrder;
@@ -666,6 +695,15 @@ chrome.storage.local.get(['nameMapping', 'customOrder', 'strictMode'], (data) =>
   if (data.strictMode) {
     strictModeSettings = data.strictMode;
     strictModeToggle.checked = strictModeSettings.enabled;
+  }
+  
+  // ユーザーカードボタン設定の読み込み
+  if (data.userCardButtonSettings) {
+    userCardButtonSettings = data.userCardButtonSettings;
+    userCardButtonToggle.checked = userCardButtonSettings.enabled;
+  } else {
+    // デフォルトはオン
+    userCardButtonToggle.checked = true;
   }
   
   // 初期描画

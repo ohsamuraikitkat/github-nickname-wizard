@@ -1,6 +1,7 @@
-// URLからユーザー名を取得
+// URLからユーザー名とニックネームを取得
 const urlParams = new URLSearchParams(window.location.search);
 const username = urlParams.get('username');
+const initialNickname = urlParams.get('nickname');
 
 // ページ読み込み完了時
 document.addEventListener('DOMContentLoaded', () => {
@@ -12,6 +13,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const nicknameInput = document.getElementById('nickname');
   const saveBtn = document.getElementById('saveBtn');
   const cancelBtn = document.getElementById('cancelBtn');
+  
+  // URLから取得した初期ニックネームがあれば入力欄に設定
+  if (initialNickname) {
+    nicknameInput.value = initialNickname;
+  }
 
   // 保存ボタンのイベントリスナー
   saveBtn.addEventListener('click', () => {
@@ -101,8 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // ユーザー名があれば実名を提案
-  if (username) {
+  // ユーザー名があり、かつ現在のニックネームが設定されていない場合のみ実名を提案
+  if (username && !initialNickname) {
     suggestNickname(username);
   }
 });

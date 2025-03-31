@@ -27,11 +27,43 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
-// コンテンツスクリプトからのメッセージを処理（ニックネームが追加された場合）
+// コンテンツスクリプトからのメッセージを処理
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('バックグラウンドスクリプトがメッセージを受信:', message);
   
-  if (message.action === "nicknameAdded") {
+  // ユーザーカードから「ニックネームを追加」ボタンがクリックされた場合
+  if (message.action === "openQuickAddPopup") {
+    const username = message.username;
+    const currentNickname = message.currentNickname || '';
+    
+    // ユーザー名が空でないことを確認
+    if (username) {
+      // ポップアップでニックネーム入力を促す
+      let url = `quick-add.html?username=${encodeURIComponent(username)}`;
+      
+      // 現在のニックネームがある場合はURLパラメータに追加
+      if (currentNickname) {
+        url += `&nickname=${encodeURIComponent(currentNickname)}`;
+      }
+      
+      chrome.windows.create({
+        url: url,
+        type: 'popup',
+        width: 400,
+        height: 250
+      });
+      
+      // 応答を返す
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: false, message: 'ユーザー名が不足しています' });
+    }
+    
+    // 非同期応答を許可するためにtrueを返す
+    return true;
+  }
+  // ニックネームが追加された場合
+  else if (message.action === "nicknameAdded") {
     // アクティブなタブを取得して通知を送信
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0] && tabs[0].id) {

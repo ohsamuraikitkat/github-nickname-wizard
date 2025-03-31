@@ -1,18 +1,20 @@
 // --- このファイルには強制リロード処理は含まれない ---
 
 (async () => {
-  // 厳格モード設定の読み込み
-  const { nameMapping, strictMode } = await new Promise(resolve => {
-    chrome.storage.local.get(['nameMapping', 'strictMode'], (data) => {
+  // 設定の読み込み
+  const { nameMapping, strictMode, userCardButtonSettings } = await new Promise(resolve => {
+    chrome.storage.local.get(['nameMapping', 'strictMode', 'userCardButtonSettings'], (data) => {
       resolve({
         nameMapping: data.nameMapping || {},
-        strictMode: data.strictMode || { enabled: false, urlPatterns: [] }
+        strictMode: data.strictMode || { enabled: false, urlPatterns: [] },
+        userCardButtonSettings: data.userCardButtonSettings || { enabled: true }
       });
     });
   });
 
-  // 厳格モード設定の保持
+  // 設定の保持
   let strictModeSettings = strictMode;
+  let userCardButtonEnabled = userCardButtonSettings.enabled;
   
   // マッピング参照用変数（更新可能にする）
   let mapping = nameMapping;
@@ -295,11 +297,134 @@
     });
   };
 
+  // --- ユーザーカードへのニックネーム追加ボタン挿入処理 ---
+  const processUserCards = () => {
+    // 厳格モードで適用すべきでない場合は何もしない
+    if (!shouldApplyNicknames()) return;
+    
+    // 設定で無効化されている場合は何もしない
+    if (!userCardButtonEnabled) return;
+    
+    // OrganizationのPeople一覧ページでのみボタンを表示する
+    // /orgs/{org-name}/people の形式のURLにマッチするか確認
+    if (!window.location.pathname.match(/^\/orgs\/[^/]+\/people\/?$/)) return;
+
+    // GitHubのユーザーカード（プロフィールホバー）を検出
+    // 主にポップオーバーやホバーカードとして表示される要素
+    const userCards = document.querySelectorAll([
+      // ホバーカード
+      '.Popover-message:not([data-nickname-button-added])',
+      // 詳細なプロフィールカード
+      '[data-hovercard-type="user"]:not([data-nickname-button-added])',
+      // アバターホバー
+      '.Overlay:not([data-nickname-button-added])',
+      // その他のユーザー情報を含むコンテナ
+      '.Profile-card:not([data-nickname-button-added])'
+    ].join(','));
+
+    userCards.forEach(card => {
+      // ユーザー名を抽出
+      let username = null;
+      
+      // ユーザー名を抽出するための様々なセレクタを試す
+      const usernameElements = card.querySelectorAll([
+        'a[href^="/"]:not([href^="/orgs/"]):not([href^="/teams/"]):not([href*="/issues/"]):not([href*="/pull/"]):not([href*="/blob/"])',
+        '[data-hovercard-type="user"]',
+        '.author',
+        'span.text-bold',
+        '.user-profile-link'
+      ].join(','));
+      
+      usernameElements.forEach(el => {
+        const potentialUsername = el.textContent.trim().replace(/^@/, '');
+        // GitHubのユーザー名パターンに一致する場合のみ（英数字、ハイフンのみ）
+        if (/^[a-zA-Z0-9-]+$/.test(potentialUsername)) {
+          username = potentialUsername;
+        }
+      });
+      
+      // アバター画像のALT属性からもユーザー名を取得してみる
+      if (!username) {
+        const avatarImg = card.querySelector('img.avatar, img.avatar-user');
+        if (avatarImg) {
+          const altText = avatarImg.getAttribute('alt');
+          if (altText) {
+            const cleanAlt = altText.trim().replace(/^@/, '');
+            if (/^[a-zA-Z0-9-]+$/.test(cleanAlt)) {
+              username = cleanAlt;
+            }
+          }
+        }
+      }
+      
+      // ユーザー名が取得できた場合のみボタンを追加
+      if (username) {
+        // ボタンを挿入する適切な場所を探す
+        let insertPoint = null;
+        
+        // 様々な挿入ポイントを探す
+        const potentialInsertPoints = card.querySelectorAll('.Popover-message > div, .d-flex > div');
+        if (potentialInsertPoints.length > 0) {
+          insertPoint = potentialInsertPoints[potentialInsertPoints.length - 1];
+        } else {
+          insertPoint = card;
+        }
+        
+        // 既にニックネームが登録されているかチェック
+        const hasNickname = mapping[username];
+        
+        // 既にこのカードに対してボタンが追加されていないことを確認
+        if (insertPoint && !card.querySelector('.nickname-add-button')) {
+          // ニックネーム追加ボタンの作成
+          const addButton = document.createElement('button');
+          addButton.className = 'nickname-add-button';
+          addButton.textContent = hasNickname ? 'ニックネームを編集' : 'ニックネームを追加';
+          addButton.style.cssText = `
+            margin-top: 8px;
+            padding: 4px 8px;
+            font-size: 12px;
+            background-color: #2ea44f;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: block;
+            width: 100%;
+            text-align: center;
+          `;
+          
+          // クリックイベントの追加
+          addButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // 現在のニックネームを取得（設定済みの場合）
+            const currentNickname = mapping[username] || '';
+            
+            // バックグラウンドスクリプトにメッセージを送信
+            chrome.runtime.sendMessage({
+              action: "openQuickAddPopup",
+              username: username,
+              currentNickname: currentNickname
+            });
+          });
+          
+          // ボタンを追加
+          insertPoint.appendChild(addButton);
+          
+          // 処理済みとしてマーク
+          card.setAttribute('data-nickname-button-added', 'true');
+        }
+      }
+    });
+  };
+
   // --- 初期実行 ---
   if (shouldApplyNicknames()) {
     processAvatars();
     injectNicknames();
     processOrgMemberLinks(mapping);
+    processUserCards();
   }
 
   // --- MutationObserver 設定 ---
@@ -310,6 +435,7 @@
     let runOriginalInject = false;
     let runAvatarProcessing = false;
     let runOrgMemberProcessing = false;
+    let runUserCardProcessing = false;
 
     for(const mutation of mutationsList) {
         if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
@@ -322,6 +448,11 @@
                     if (isOrgMemberListPage() && (node.matches('a[data-hovercard-type="user"][href^="/orgs/"]') || node.querySelector('a[data-hovercard-type="user"][href^="/orgs/"]'))) {
                         runOrgMemberProcessing = true;
                     }
+                    // ユーザーカード関連の要素が追加された場合
+                    if (node.matches('.Popover-message, [data-hovercard-type="user"], .Overlay, .Profile-card') || 
+                        node.querySelector('.Popover-message, [data-hovercard-type="user"], .Overlay, .Profile-card')) {
+                        runUserCardProcessing = true;
+                    }
                 }
             });
         }
@@ -329,7 +460,7 @@
              runOriginalInject = true;
         }
         // Exit early if all flags are set
-        if (runOriginalInject && runAvatarProcessing && runOrgMemberProcessing) break;
+        if (runOriginalInject && runAvatarProcessing && runOrgMemberProcessing && runUserCardProcessing) break;
     }
 
     if (runAvatarProcessing) {
@@ -340,6 +471,9 @@
     }
     if (runOrgMemberProcessing) {
         processOrgMemberLinks(mapping);
+    }
+    if (runUserCardProcessing) {
+        processUserCards();
     }
   };
   
@@ -365,16 +499,43 @@
       
       // 設定が変更されたら、すべてのマークを削除して再適用
       if (shouldApplyNicknames()) {
-        document.querySelectorAll('[data-nickname-injected], [data-tooltip-modified], [data-assignee-tooltip-modified]').forEach(el => {
+        document.querySelectorAll('[data-nickname-injected], [data-tooltip-modified], [data-assignee-tooltip-modified], [data-nickname-button-added]').forEach(el => {
           el.removeAttribute('data-nickname-injected');
           el.removeAttribute('data-tooltip-modified');
           el.removeAttribute('data-assignee-tooltip-modified');
+          el.removeAttribute('data-nickname-button-added');
         });
         
         // 再処理
         processAvatars();
         injectNicknames();
         processOrgMemberLinks(mapping);
+        processUserCards();
+      }
+      
+      // 応答を返す
+      sendResponse({ success: true });
+    }
+    // ユーザーカードボタン設定が更新された場合の処理
+    else if (message.action === 'userCardButtonSettingsUpdated') {
+      console.log('ユーザーカードボタン設定の更新メッセージを受信:', message);
+      
+      // 設定を更新
+      userCardButtonEnabled = message.settings.enabled;
+      
+      // すべてのユーザーカードボタンを削除
+      document.querySelectorAll('[data-nickname-button-added]').forEach(el => {
+        // ボタンを探して削除
+        const button = el.querySelector('.nickname-add-button');
+        if (button) {
+          button.remove();
+        }
+        el.removeAttribute('data-nickname-button-added');
+      });
+      
+      // 必要に応じて再処理
+      if (shouldApplyNicknames()) {
+        processUserCards();
       }
       
       // 応答を返す
@@ -404,15 +565,17 @@
               });
               
               // ツールチップのマークも削除
-              document.querySelectorAll('[data-tooltip-modified], [data-assignee-tooltip-modified]').forEach(el => {
+              document.querySelectorAll('[data-tooltip-modified], [data-assignee-tooltip-modified], [data-nickname-button-added]').forEach(el => {
                 el.removeAttribute('data-tooltip-modified');
                 el.removeAttribute('data-assignee-tooltip-modified');
+                el.removeAttribute('data-nickname-button-added');
               });
               
               // 再処理
               processAvatars();
               injectNicknames();
               processOrgMemberLinks(mapping);
+              processUserCards();
               
               // 成功メッセージをコンソールに表示
               console.log(`GitHub Nickname Wizard: ニックネームを追加しました - @${username} → ${nickname}`);

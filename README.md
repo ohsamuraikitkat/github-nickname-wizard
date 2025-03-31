@@ -19,6 +19,7 @@ A browser extension that enhances GitHub by adding nicknames to usernames, makin
 * Nickname addition methods:
   * Add through the extension popup UI
   * **Context menu direct registration**: Easily register nicknames by right-clicking on selected usernames on GitHub
+  * **One-click registration from user cards**: Add nicknames directly via the "Add nickname" button that appears on user profile hover cards
 * Easy management of existing nicknames (edit, delete)
 * Import/Export capabilities: Save your nickname mappings to a JSON file and import them later
 * Strict Mode: Restrict the extension to only run on trusted URLs with support for wildcards and regex patterns
