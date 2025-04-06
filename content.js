@@ -1,13 +1,25 @@
 // --- このファイルには強制リロード処理は含まれない ---
 
+// IIFE（即時実行関数式）でスコープを作成し、chrome APIへのアクセスを含める
 (async () => {
+  // i18nメッセージ取得のためのヘルパー関数（IIFE内でローカルに定義）
+  const getMessage = (key, substitutions = []) => {
+    try {
+      return chrome.i18n.getMessage(key, substitutions);
+    } catch (error) {
+      console.error(`Error getting message for key ${key}:`, error);
+      return key; // エラー時はキーをそのまま返す
+    }
+  };
+
   // 設定の読み込み
-  const { nameMapping, strictMode, userCardButtonSettings } = await new Promise(resolve => {
-    chrome.storage.local.get(['nameMapping', 'strictMode', 'userCardButtonSettings'], (data) => {
+  const { nameMapping, strictMode, userCardButtonSettings, language } = await new Promise(resolve => {
+    chrome.storage.local.get(['nameMapping', 'strictMode', 'userCardButtonSettings', 'language'], (data) => {
       resolve({
         nameMapping: data.nameMapping || {},
         strictMode: data.strictMode || { enabled: false, urlPatterns: [] },
-        userCardButtonSettings: data.userCardButtonSettings || { enabled: true }
+        userCardButtonSettings: data.userCardButtonSettings || { enabled: true },
+        language: data.language || 'auto'
       });
     });
   });
@@ -375,10 +387,12 @@
         
         // 既にこのカードに対してボタンが追加されていないことを確認
         if (insertPoint && !card.querySelector('.nickname-add-button')) {
-          // ニックネーム追加ボタンの作成
+          // ニックネーム追加ボタンの作成 - 言語設定によらず固定の英語表記
           const addButton = document.createElement('button');
           addButton.className = 'nickname-add-button';
-          addButton.textContent = hasNickname ? 'ニックネームを編集' : 'ニックネームを追加';
+          addButton.setAttribute('data-username', username);
+          // 固定の"Nickname"テキスト
+          addButton.textContent = "Nickname";
           addButton.style.cssText = `
             margin-top: 8px;
             padding: 4px 8px;
@@ -402,11 +416,15 @@
             const currentNickname = mapping[username] || '';
             
             // バックグラウンドスクリプトにメッセージを送信
-            chrome.runtime.sendMessage({
-              action: "openQuickAddPopup",
-              username: username,
-              currentNickname: currentNickname
-            });
+            try {
+              chrome.runtime.sendMessage({
+                action: "openQuickAddPopup",
+                username: username,
+                currentNickname: currentNickname
+              });
+            } catch (error) {
+              console.error('Failed to send message to background script:', error);
+            }
           });
           
           // ボタンを追加
@@ -491,118 +509,138 @@
   }, true);
 
   // --- 設定変更のリスナー ---
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('コンテンツスクリプトがメッセージを受信:', message);
-    
-    if (message.action === 'strictModeUpdated') {
-      strictModeSettings = message.settings;
+  // エラーハンドリングを強化：メッセージリスナーは一度だけ追加
+  const messageHandler = (message, sender, sendResponse) => {
+    try {
+      console.log('Content script received message:', message);
       
-      // 設定が変更されたら、すべてのマークを削除して再適用
-      if (shouldApplyNicknames()) {
-        document.querySelectorAll('[data-nickname-injected], [data-tooltip-modified], [data-assignee-tooltip-modified], [data-nickname-button-added]').forEach(el => {
-          el.removeAttribute('data-nickname-injected');
-          el.removeAttribute('data-tooltip-modified');
-          el.removeAttribute('data-assignee-tooltip-modified');
+      // 言語変更メッセージは処理しない（ボタンテキストは固定）
+      if (message.action === 'languageChanged') {
+        console.log('Language change detected, no UI updates needed for fixed English buttons');
+        sendResponse({ success: true });
+        return true;
+      }
+      // 厳格モード更新メッセージを処理
+      else if (message.action === 'strictModeUpdated') {
+        strictModeSettings = message.settings;
+        
+        // 設定が変更されたら、すべてのマークを削除して再適用
+        if (shouldApplyNicknames()) {
+          document.querySelectorAll('[data-nickname-injected], [data-tooltip-modified], [data-assignee-tooltip-modified], [data-nickname-button-added]').forEach(el => {
+            el.removeAttribute('data-nickname-injected');
+            el.removeAttribute('data-tooltip-modified');
+            el.removeAttribute('data-assignee-tooltip-modified');
+            el.removeAttribute('data-nickname-button-added');
+          });
+          
+          // 再処理
+          processAvatars();
+          injectNicknames();
+          processOrgMemberLinks(mapping);
+          processUserCards();
+        }
+        
+        // 応答を返す
+        sendResponse({ success: true });
+      }
+      // ユーザーカードボタン設定が更新された場合の処理
+      else if (message.action === 'userCardButtonSettingsUpdated') {
+        console.log('User card button settings update received:', message);
+        
+        // 設定を更新
+        userCardButtonEnabled = message.settings.enabled;
+        
+        // すべてのユーザーカードボタンを削除
+        document.querySelectorAll('[data-nickname-button-added]').forEach(el => {
+          // ボタンを探して削除
+          const button = el.querySelector('.nickname-add-button');
+          if (button) {
+            button.remove();
+          }
           el.removeAttribute('data-nickname-button-added');
         });
         
-        // 再処理
-        processAvatars();
-        injectNicknames();
-        processOrgMemberLinks(mapping);
-        processUserCards();
-      }
-      
-      // 応答を返す
-      sendResponse({ success: true });
-    }
-    // ユーザーカードボタン設定が更新された場合の処理
-    else if (message.action === 'userCardButtonSettingsUpdated') {
-      console.log('ユーザーカードボタン設定の更新メッセージを受信:', message);
-      
-      // 設定を更新
-      userCardButtonEnabled = message.settings.enabled;
-      
-      // すべてのユーザーカードボタンを削除
-      document.querySelectorAll('[data-nickname-button-added]').forEach(el => {
-        // ボタンを探して削除
-        const button = el.querySelector('.nickname-add-button');
-        if (button) {
-          button.remove();
-        }
-        el.removeAttribute('data-nickname-button-added');
-      });
-      
-      // 必要に応じて再処理
-      if (shouldApplyNicknames()) {
-        processUserCards();
-      }
-      
-      // 応答を返す
-      sendResponse({ success: true });
-    }
-    // コンテキストメニューからニックネームが追加された場合の処理
-    else if (message.action === 'refreshNicknames') {
-      console.log('ニックネーム更新メッセージを受信:', message);
-      const username = message.username;
-      const nickname = message.nickname;
-      
-      // マッピング更新
-      if (username && nickname) {
-        try {
-          // マッピングを更新
-          chrome.storage.local.get('nameMapping', (data) => {
-            console.log('ストレージから最新のマッピングを取得:', data);
-            mapping = data.nameMapping || {};
-            
-            // すでに処理済みの要素のマークを削除して再適用
-            try {
-              const selector = `a[href="/${username}"], a[href="/${username}/"], a[data-hovercard-type="user"]`;
-              document.querySelectorAll(selector).forEach(el => {
-                if (el.getAttribute('data-nickname-injected')) {
-                  el.removeAttribute('data-nickname-injected');
-                }
-              });
-              
-              // ツールチップのマークも削除
-              document.querySelectorAll('[data-tooltip-modified], [data-assignee-tooltip-modified], [data-nickname-button-added]').forEach(el => {
-                el.removeAttribute('data-tooltip-modified');
-                el.removeAttribute('data-assignee-tooltip-modified');
-                el.removeAttribute('data-nickname-button-added');
-              });
-              
-              // 再処理
-              processAvatars();
-              injectNicknames();
-              processOrgMemberLinks(mapping);
-              processUserCards();
-              
-              // 成功メッセージをコンソールに表示
-              console.log(`GitHub Nickname Wizard: ニックネームを追加しました - @${username} → ${nickname}`);
-              
-              // 応答を返す
-              sendResponse({ success: true, message: 'ニックネームが更新されました' });
-            } catch (error) {
-              console.error('DOM要素の更新中にエラーが発生しました:', error);
-              sendResponse({ success: false, error: error.message });
-            }
-          });
-        } catch (error) {
-          console.error('ストレージ操作中にエラーが発生しました:', error);
-          sendResponse({ success: false, error: error.message });
+        // 必要に応じて再処理
+        if (shouldApplyNicknames()) {
+          processUserCards();
         }
         
-        // 非同期応答を許可するためにtrueを返す
-        return true;
-      } else {
-        sendResponse({ success: false, message: 'ユーザー名またはニックネームが不足しています' });
+        // 応答を返す
+        sendResponse({ success: true });
       }
-    } else {
-      // 不明なアクション
-      sendResponse({ success: false, message: '不明なアクション' });
+      // コンテキストメニューからニックネームが追加された場合の処理
+      else if (message.action === 'refreshNicknames') {
+        console.log('Nickname update message received:', message);
+        const username = message.username;
+        const nickname = message.nickname;
+        
+        // マッピング更新
+        if (username && nickname) {
+          try {
+            // マッピングを更新
+            chrome.storage.local.get('nameMapping', (data) => {
+              console.log('Retrieved latest mapping from storage:', data);
+              mapping = data.nameMapping || {};
+              
+              // すでに処理済みの要素のマークを削除して再適用
+              try {
+                const selector = `a[href="/${username}"], a[href="/${username}/"], a[data-hovercard-type="user"]`;
+                document.querySelectorAll(selector).forEach(el => {
+                  if (el.getAttribute('data-nickname-injected')) {
+                    el.removeAttribute('data-nickname-injected');
+                  }
+                });
+                
+                // ツールチップのマークも削除
+                document.querySelectorAll('[data-tooltip-modified], [data-assignee-tooltip-modified], [data-nickname-button-added]').forEach(el => {
+                  el.removeAttribute('data-tooltip-modified');
+                  el.removeAttribute('data-assignee-tooltip-modified');
+                  el.removeAttribute('data-nickname-button-added');
+                });
+                
+                // 再処理
+                processAvatars();
+                injectNicknames();
+                processOrgMemberLinks(mapping);
+                processUserCards();
+                
+                // 成功メッセージをコンソールに表示
+                console.log(`GitHub Nickname Wizard: Nickname added - @${username} → ${nickname}`);
+                
+                // 応答を返す
+                sendResponse({ success: true, message: 'Nicknames updated' });
+              } catch (error) {
+                console.error('Error updating DOM elements:', error);
+                sendResponse({ success: false, error: error.message });
+              }
+            });
+          } catch (error) {
+            console.error('Error during storage operation:', error);
+            sendResponse({ success: false, error: error.message });
+          }
+          
+          // 非同期応答を許可するためにtrueを返す
+          return true;
+        } else {
+          sendResponse({ success: false, message: 'Missing username' });
+        }
+      } else {
+        // 不明なアクション
+        sendResponse({ success: false, message: 'Unknown action' });
+      }
+    } catch (error) {
+      console.error('Error handling message:', error);
+      sendResponse({ success: false, error: error.message });
     }
     
     // 非同期応答を許可するためにtrueを返す
     return true;
-  });
+  };
+
+  // リスナーを登録
+  try {
+    chrome.runtime.onMessage.addListener(messageHandler);
+  } catch (error) {
+    console.error('Failed to register message listener:', error);
+  }
 })();

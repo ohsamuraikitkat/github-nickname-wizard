@@ -1,3 +1,6 @@
+// i18nオブジェクトを直接参照して重複宣言を避ける
+const i18n = window.i18n;
+
 // URLからユーザー名とニックネームを取得
 const urlParams = new URLSearchParams(window.location.search);
 const username = urlParams.get('username');
@@ -36,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const sanitizedNickname = sanitizeNickname(nickname);
 
-      console.log(`保存処理開始: ユーザー ${username}, ニックネーム ${sanitizedNickname}`);
+      console.log(`Save process started: user ${username}, nickname ${sanitizedNickname}`);
       
       // ストレージに保存
       try {
@@ -46,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
           mapping[username] = sanitizedNickname;
           
           chrome.storage.local.set({ nameMapping: mapping }, () => {
-            console.log('マッピングデータを保存しました:', mapping);
+            console.log('Mapping data saved:', mapping);
             if (chrome.runtime.lastError) {
               console.error('保存エラー:', chrome.runtime.lastError);
               alert(`保存エラー: ${chrome.runtime.lastError.message}`);
@@ -61,11 +64,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }, (response) => {
               console.log('メッセージ送信完了:', response);
               if (chrome.runtime.lastError) {
-                console.error('通知エラー:', chrome.runtime.lastError);
+                console.error('Notification error:', chrome.runtime.lastError);
                 // エラーが発生しても保存処理自体は完了しているので、成功として扱う
               }
               
-              alert(`ニックネームを保存しました: @${username} → ${sanitizedNickname}`);
+              alert(i18n.getMessage('nickname_added', [username, sanitizedNickname]));
               // ウィンドウを閉じる
               window.close();
             });
@@ -75,16 +78,40 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('予期せぬエラー:', error);
         alert(`エラーが発生しました: ${error.message}`);
       }
-    } else if (!nickname) {
-      alert('ニックネームを入力してください');
+      } else if (!nickname) {
+        alert(i18n.getMessage('enter_nickname'));
     }
   });
 
   // キャンセルボタンのイベントリスナー
   cancelBtn.addEventListener('click', () => {
-    window.close();
+    try {
+      // ウィンドウを閉じる
+      window.close();
+      
+      // バックアップとして明示的にウィンドウを閉じるメッセージを送信
+      chrome.runtime.sendMessage({
+        action: "closeQuickAddWindow",
+        windowId: chrome.windows ? chrome.windows.WINDOW_ID_CURRENT : null
+      });
+    } catch (error) {
+      console.error('ウィンドウを閉じる際にエラーが発生しました:', error);
+    }
   });
 
+  // 多言語化の初期処理
+  i18n.localizeDocument();
+  i18n.setupDynamicLocalization();
+  
+  // タイトルを更新（編集モード時）
+  if (initialNickname) {
+    document.title = i18n.getMessage('edit_nickname_title');
+    const titleElement = document.querySelector('h3');
+    if (titleElement) {
+      titleElement.textContent = i18n.getMessage('edit_nickname_title');
+    }
+  }
+  
   // Enterキー押下時に保存処理を実行
   nicknameInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {

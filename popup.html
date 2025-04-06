@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <title>GitHub Nickname Wizard</title>
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self'; object-src 'self'">
   <style>
     :root {
       --primary-color: #0366d6;
@@ -447,7 +448,7 @@
 <body>
   <h3>
     <img src="icon.png" alt="Extension Icon">
-    GitHub Nickname Wizard
+    <span data-i18n="extension_name">GitHub Nickname Wizard</span>
   </h3>
   
   <div class="theme-switch">
@@ -456,74 +457,82 @@
   </div>
 
   <div class="section">
-    <div class="section-title">Add New Nickname</div>
+    <div class="section-title" data-i18n="add_new_nickname">Add New Nickname</div>
     <div class="form-group">
-      <input type="text" id="username" placeholder="GitHub Username (without @)" />
-      <input type="text" id="nickname" placeholder="Nickname (e.g. John Doe)" />
+      <input type="text" id="username" data-i18n-placeholder="username_placeholder" placeholder="GitHub Username (without @)" />
+      <input type="text" id="nickname" data-i18n-placeholder="nickname_placeholder" placeholder="Nickname (e.g. John Doe)" />
     </div>
-    <button id="add" class="primary">Add</button>
+    <button id="add" class="primary" data-i18n="add_button">Add</button>
   </div>
 
   <div class="section">
-    <div class="section-title">Search Nicknames</div>
+    <div class="section-title" data-i18n="search_nicknames">Search Nicknames</div>
     <div class="filter-section">
       <div class="filter-input">
-        <input type="text" id="filterInput" placeholder="Search by GitHub username or nickname..." />
+        <input type="text" id="filterInput" data-i18n-placeholder="search_placeholder" placeholder="Search by GitHub username or nickname..." />
       </div>
       <button class="filter-clear" id="clearFilter">×</button>
     </div>
     <div class="custom-sort">
-      <button id="toggleCustomSort" class="primary">Custom Sort</button>
-      <button id="saveCustomOrder" class="success save-order">Save Order</button>
+      <button id="toggleCustomSort" class="primary" data-i18n="custom_sort">Custom Sort</button>
+      <button id="saveCustomOrder" class="success save-order" data-i18n="save_order">Save Order</button>
     </div>
     <div id="list"></div>
   </div>
 
   <div class="section">
-    <div class="section-title">Display Settings</div>
+    <div class="section-title" data-i18n="display_settings">Display Settings</div>
     <div style="margin-bottom: 16px;">
       <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
         <input type="checkbox" id="userCardButtonToggle" style="width: auto;">
-        <span>Show "Add nickname" button on user cards</span>
+        <span data-i18n="show_add_button">Show "Add nickname" button on user cards</span>
       </label>
-      <p style="font-size: 12px; color: var(--empty-state-color); margin-top: 4px;">
+      <p style="font-size: 12px; color: var(--empty-state-color); margin-top: 4px;" data-i18n="show_add_button_description">
         When enabled, an "Add nickname" button will be shown on user profile cards in Organization People lists.
       </p>
     </div>
     
-    <div class="section-title" style="margin-top: 20px;">Strict Mode Settings</div>
+    <div class="section-title" style="margin-top: 20px;" data-i18n="strict_mode_settings">Strict Mode Settings</div>
     <div style="margin-bottom: 16px;">
       <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
         <input type="checkbox" id="strictModeToggle" style="width: auto;">
-        <span>Enable Strict Mode (only run on trusted URLs)</span>
+        <span data-i18n="enable_strict_mode">Enable Strict Mode (only run on trusted URLs)</span>
       </label>
-      <p style="font-size: 12px; color: var(--empty-state-color); margin-top: 4px;">
+      <p style="font-size: 12px; color: var(--empty-state-color); margin-top: 4px;" data-i18n="strict_mode_description">
         When enabled, nicknames will only be shown on URLs that match the patterns below.
       </p>
     </div>
     
     <div id="strictModeControls">
       <div class="form-group" style="grid-template-columns: 1fr auto;">
-        <input type="text" id="urlPattern" placeholder="URL Pattern (e.g. https://github.com/your-org/*, *.github.com/your-org, regex:/your-org/.*/issues)" />
-        <button id="addUrlPattern" class="success">Add</button>
+        <input type="text" id="urlPattern" data-i18n-placeholder="url_pattern_placeholder" placeholder="URL Pattern (e.g. https://github.com/your-org/*, *.github.com/your-org, regex:/your-org/.*/issues)" />
+        <button id="addUrlPattern" class="success" data-i18n="add_url_pattern_button">Add</button>
       </div>
       
       <div style="margin-top: 12px;">
-        <div class="section-title" style="font-size: 13px; margin-bottom: 8px;">Trusted URL Patterns</div>
+        <div class="section-title" style="font-size: 13px; margin-bottom: 8px;" data-i18n="trusted_url_patterns">Trusted URL Patterns</div>
         <div id="urlPatternsList"></div>
       </div>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-title">Import/Export Settings</div>
+    <div class="section-title" data-i18n="import_export_settings">Import/Export Settings</div>
     <input type="file" id="presetFile" accept=".json" />
     <div class="button-group">
-      <button id="loadPreset" class="primary">Import</button>
-      <button id="exportPreset" class="success">Export</button>
+      <button id="loadPreset" class="primary" data-i18n="import_button">Import</button>
+      <button id="exportPreset" class="success" data-i18n="export_button">Export</button>
     </div>
   </div>
 
+  <div class="section">
+    <div class="section-title" data-i18n="language_settings">Language Settings</div>
+    <div id="language-selector-container" style="margin-top: 10px;">
+      <!-- 言語選択UIはJavaScriptで動的に生成 -->
+    </div>
+  </div>
+
+  <script src="js/i18n.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

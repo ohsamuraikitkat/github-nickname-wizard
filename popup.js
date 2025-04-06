@@ -1,3 +1,6 @@
+// i18n関数へのショートカット
+const i18n = window.i18n;
+
 const listDiv = document.getElementById('list');
 const usernameInput = document.getElementById('username');
 const nicknameInput = document.getElementById('nickname');
@@ -16,6 +19,9 @@ const urlPatternsList = document.getElementById('urlPatternsList');
 
 // ユーザーカードボタン設定関連の要素
 const userCardButtonToggle = document.getElementById('userCardButtonToggle');
+
+// 言語セレクター関連の要素（DOMContentLoadedで取得するよう変更）
+let languageSelectorContainer;
 
 // ソート状態を管理
 let sortState = {
@@ -59,7 +65,7 @@ function filterEntries(entries) {
 
 function renderList(mapping) {
   if (!mapping || Object.keys(mapping).length === 0) {
-    listDiv.innerHTML = '<div class="empty-state">No nicknames configured</div>';
+    listDiv.innerHTML = `<div class="empty-state">${i18n.getMessage('no_nicknames')}</div>`;
     return;
   }
 
@@ -106,14 +112,14 @@ function renderList(mapping) {
         </th>
         ${sortState.isCustom ? '<th></th>' : ''}
         <th class="sortable" data-column="username">
-          GitHub Username
+          ${i18n.getMessage('github_username')}
           <span class="sort-icon">${!sortState.isCustom && sortState.column === 'username' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</span>
         </th>
         <th class="sortable" data-column="nickname">
-          Display Nickname
+          ${i18n.getMessage('display_nickname')}
           <span class="sort-icon">${!sortState.isCustom && sortState.column === 'nickname' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</span>
         </th>
-        <th>Actions</th>
+        <th>${i18n.getMessage('actions')}</th>
       </tr>
     </thead>
     <tbody>
@@ -129,8 +135,8 @@ function renderList(mapping) {
             <input type="text" class="nickname-edit" value="${nickname}" style="display: none;">
           </td>
           <td class="action-buttons">
-            <button class="edit-btn success" data-username="${username}">Edit</button>
-            <button class="delete-btn danger" data-username="${username}">Del</button>
+            <button class="edit-btn success" data-username="${username}">${i18n.getMessage('edit_button')}</button>
+            <button class="delete-btn danger" data-username="${username}">${i18n.getMessage('delete_button')}</button>
           </td>
         </tr>
       `).join('')}
@@ -141,7 +147,7 @@ function renderList(mapping) {
   const bulkActionsContainer = document.createElement('div');
   bulkActionsContainer.className = 'bulk-actions';
   bulkActionsContainer.innerHTML = `
-    <button id="bulkDeleteBtn">Delete Selected Items</button>
+    <button id="bulkDeleteBtn">${i18n.getMessage('delete_selected')}</button>
   `;
 
   listDiv.innerHTML = '';
@@ -178,7 +184,7 @@ function renderList(mapping) {
 
     if (selectedUsernames.length === 0) return;
 
-    if (confirm(`Are you sure you want to delete ${selectedUsernames.length} nickname(s)?\n\n${selectedUsernames.map(username => `@${username}`).join('\n')}`)) {
+    if (confirm(i18n.getMessage('confirm_bulk_delete', [selectedUsernames.length, selectedUsernames.map(username => `@${username}`).join('\n')]))) {
       chrome.storage.local.get('nameMapping', (data) => {
         const mapping = data.nameMapping || {};
         selectedUsernames.forEach(username => {
@@ -228,7 +234,7 @@ function renderList(mapping) {
               nicknameDisplay.textContent = newNickname;
               nicknameDisplay.style.display = 'inline';
               nicknameEdit.style.display = 'none';
-              editBtn.textContent = 'Edit';
+              editBtn.textContent = i18n.getMessage('edit_button');
               renderList(mapping);
             });
           });
@@ -236,7 +242,7 @@ function renderList(mapping) {
       } else {
         nicknameDisplay.style.display = 'none';
         nicknameEdit.style.display = 'inline';
-        editBtn.textContent = 'Save';
+        editBtn.textContent = i18n.getMessage('save_button');
       }
     });
   });
@@ -245,7 +251,7 @@ function renderList(mapping) {
   table.querySelectorAll('.delete-btn').forEach(deleteBtn => {
     deleteBtn.addEventListener('click', () => {
       const username = deleteBtn.getAttribute('data-username');
-      if (confirm(`Are you sure you want to delete the nickname for @${username}?`)) {
+      if (confirm(i18n.getMessage('confirm_delete', [username]))) {
         chrome.storage.local.get('nameMapping', (data) => {
           const mapping = data.nameMapping || {};
           delete mapping[username];
@@ -295,7 +301,7 @@ function renderUrlPatterns() {
   if (!strictModeSettings.urlPatterns || strictModeSettings.urlPatterns.length === 0) {
     urlPatternsList.innerHTML = `
       <div class="url-patterns-empty">
-        No URL patterns added yet. Add patterns to specify which GitHub URLs the extension should run on.
+        ${i18n.getMessage('no_url_patterns')}
       </div>
     `;
     return;
@@ -342,7 +348,7 @@ function validateUrlPattern(pattern) {
   if (!pattern || pattern.trim() === '') {
     return {
       isValid: false,
-      error: 'URL pattern cannot be empty'
+      error: i18n.getMessage('error_url_pattern_empty')
     };
   }
   
@@ -350,7 +356,7 @@ function validateUrlPattern(pattern) {
   if (pattern.length > 1000) {
     return {
       isValid: false,
-      error: 'URL pattern must be 1000 characters or less'
+      error: i18n.getMessage('error_url_pattern_length')
     };
   }
 
@@ -362,7 +368,7 @@ function validateUrlPattern(pattern) {
     } catch (error) {
       return {
         isValid: false,
-        error: `Invalid regular expression: ${error.message}`
+        error: i18n.getMessage('error_invalid_regex', [error.message])
       };
     }
   }
@@ -388,7 +394,7 @@ clearFilterButton.addEventListener('click', () => {
 // カスタムソート機能のイベントリスナー
 toggleCustomSortButton.addEventListener('click', () => {
   sortState.isCustom = !sortState.isCustom;
-  toggleCustomSortButton.textContent = sortState.isCustom ? 'Normal Sort' : 'Custom Sort';
+  toggleCustomSortButton.textContent = sortState.isCustom ? i18n.getMessage('normal_sort') : i18n.getMessage('custom_sort');
   saveCustomOrderButton.classList.toggle('active', sortState.isCustom);
   
   if (sortState.isCustom) {
@@ -410,7 +416,7 @@ saveCustomOrderButton.addEventListener('click', () => {
   
   // カスタム順序をストレージに保存
   chrome.storage.local.set({ customOrder }, () => {
-    alert('Custom order saved successfully.');
+    alert(i18n.getMessage('order_saved'));
   });
 });
 
@@ -432,7 +438,7 @@ addUrlPatternButton.addEventListener('click', () => {
   
   // 重複チェック
   if (strictModeSettings.urlPatterns.includes(validation.sanitized)) {
-    alert('This URL pattern already exists.');
+    alert(i18n.getMessage('error_duplicate_pattern'));
     return;
   }
   
@@ -465,7 +471,7 @@ function validateNickname(name) {
   if (!name || name.trim() === '') {
     return {
       isValid: false,
-      error: 'Display nickname cannot be empty'
+      error: i18n.getMessage('error_nickname_empty')
     };
   }
 
@@ -473,7 +479,7 @@ function validateNickname(name) {
   if (name.length > 100) {
     return {
       isValid: false,
-      error: 'Display nickname must be 100 characters or less'
+      error: i18n.getMessage('error_nickname_length')
     };
   }
 
@@ -496,7 +502,7 @@ function validateNickname(name) {
     if (pattern.test(name)) {
       return {
         isValid: false,
-        error: 'Display nickname contains potentially dangerous content'
+        error: i18n.getMessage('error_nickname_content')
       };
     }
   }
@@ -522,7 +528,7 @@ document.getElementById('add').addEventListener('click', () => {
   const sanitizedNickname = validation.sanitized;
 
   if (!username) {
-    alert('Please enter a GitHub username');
+    alert(i18n.getMessage('error_username_empty'));
     return;
   }
 
@@ -564,8 +570,8 @@ function setTheme(theme) {
 // 設定のエクスポート
 document.getElementById('exportPreset').addEventListener('click', async () => {
   try {
-    const { nameMapping, customOrder, theme, strictMode } = await new Promise(resolve => {
-      chrome.storage.local.get(['nameMapping', 'customOrder', 'theme', 'strictMode'], resolve);
+    const { nameMapping, customOrder, theme, strictMode, language } = await new Promise(resolve => {
+      chrome.storage.local.get(['nameMapping', 'customOrder', 'theme', 'strictMode', 'language'], resolve);
     });
 
     const preset = {
@@ -573,7 +579,8 @@ document.getElementById('exportPreset').addEventListener('click', async () => {
       mappings: nameMapping || {},
       customOrder: customOrder || [],
       theme: theme || 'light',
-      strictMode: strictMode || { enabled: false, urlPatterns: [] }
+      strictMode: strictMode || { enabled: false, urlPatterns: [] },
+      language: language || 'auto'
     };
 
     const blob = new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' });
@@ -584,9 +591,9 @@ document.getElementById('exportPreset').addEventListener('click', async () => {
     a.click();
     URL.revokeObjectURL(url);
 
-    alert('Settings exported successfully.');
+    alert(i18n.getMessage('settings_exported'));
   } catch (error) {
-    alert(`Failed to export settings: ${error.message}`);
+    alert(i18n.getMessage('error_export', [error.message]));
   }
 });
 
@@ -596,7 +603,7 @@ document.getElementById('loadPreset').addEventListener('click', async () => {
   const file = fileInput.files[0];
   
   if (!file) {
-    alert('Please select a settings file.');
+    alert(i18n.getMessage('error_file_select'));
     return;
   }
 
@@ -606,7 +613,7 @@ document.getElementById('loadPreset').addEventListener('click', async () => {
 
     // バージョンチェック
     if (!preset.version || !preset.mappings) {
-      throw new Error('Invalid settings file format.');
+      throw new Error(i18n.getMessage('error_import_format'));
     }
 
     // マッピングの検証とサニタイズ
@@ -614,7 +621,7 @@ document.getElementById('loadPreset').addEventListener('click', async () => {
     for (const [username, nickname] of Object.entries(preset.mappings)) {
       const validation = validateNickname(nickname);
       if (!validation.isValid) {
-        throw new Error(`Invalid display nickname for user ${username}: ${validation.error}`);
+        throw new Error(i18n.getMessage('error_import_nickname', [username, validation.error]));
       }
       sanitizedMappings[username] = validation.sanitized;
     }
@@ -649,11 +656,18 @@ document.getElementById('loadPreset').addEventListener('click', async () => {
       renderUrlPatterns();
     }
 
+    // 言語設定の更新
+    if (preset.language) {
+      await new Promise(resolve => {
+        chrome.storage.local.set({ language: preset.language }, resolve);
+      });
+    }
+
     // リストを更新
     renderList(sanitizedMappings);
-    alert('Settings imported successfully.');
+    alert(i18n.getMessage('settings_imported'));
   } catch (error) {
-    alert(`Failed to import settings: ${error.message}`);
+    alert(i18n.getMessage('error_import', [error.message]));
   }
 });
 
@@ -684,8 +698,91 @@ function saveUserCardButtonSettings() {
   });
 }
 
+// 言語セレクタを設定
+async function setupLanguageSelector() {
+  try {
+    // 言語セレクタコンテナを取得
+    languageSelectorContainer = document.getElementById('language-selector-container');
+    if (!languageSelectorContainer) {
+      console.error('Language selector container not found');
+      return;
+    }
+
+    // 利用可能な言語のリスト（_localesディレクトリ内の言語）
+    const availableLocales = ['en', 'ja']; // 将来的に言語が追加されたらここを拡張
+    
+    // 現在の言語を取得
+    const currentLocale = await window.i18n.getCurrentLocale();
+    console.log('Current locale:', currentLocale);
+    
+    // 言語セレクタを作成
+    const selector = i18n.createLanguageSelector(availableLocales, currentLocale);
+    
+    // セレクタのスタイル設定
+    selector.style.width = '100%';
+    selector.style.padding = '8px';
+    selector.style.marginTop = '8px';
+    selector.style.borderRadius = '4px';
+    selector.style.border = '1px solid var(--border-color)';
+    
+    // コンテナに追加（既存の内容をクリア）
+    languageSelectorContainer.innerHTML = '';
+    languageSelectorContainer.appendChild(selector);
+    
+    console.log('Language selector setup complete');
+  } catch (error) {
+    console.error('Error setting up language selector:', error);
+  }
+}
+
+// 多言語化とUIの初期化
+// 直接言語を変更する関数
+function changeLanguage(newLocale) {
+  console.log(`直接言語を変更: ${newLocale}`);
+  
+  // ローカルストレージに保存
+  chrome.storage.local.set({ language: newLocale }, () => {
+    // 拡張機能をリロード
+    window.location.reload();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM content loaded');
+  
+  // 現在の言語を確認
+  chrome.storage.local.get('language', (data) => {
+    const currentLanguage = data.language || 'auto';
+    console.log(`現在の言語設定: ${currentLanguage}`);
+    
+    // 多言語化を適用
+    i18n.localizeDocument();
+    
+    // 動的に追加される要素の多言語化を設定
+    i18n.setupDynamicLocalization();
+    
+    // 言語セレクタを設定
+    setupLanguageSelector().catch(err => {
+      console.error('Failed to set up language selector:', err);
+    });
+    
+    // 言語セレクタが設定された後に手動で言語セレクタの値を設定
+    setTimeout(() => {
+      const languageSelector = document.getElementById('language-selector');
+      if (languageSelector) {
+        languageSelector.value = currentLanguage;
+        
+        // イベントリスナを再設定
+        languageSelector.addEventListener('change', (e) => {
+          changeLanguage(e.target.value);
+        });
+      }
+    }, 100);
+  });
+});
+
 // 初期化 - 保存された設定の読み込み
-chrome.storage.local.get(['nameMapping', 'customOrder', 'strictMode', 'userCardButtonSettings'], (data) => {
+chrome.storage.local.get(['nameMapping', 'customOrder', 'strictMode', 'userCardButtonSettings', 'language'], (data) => {
   // ニックネームマッピングとカスタムソート順の読み込み
   if (data.customOrder) {
     customOrder = data.customOrder;

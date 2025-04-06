@@ -1,0 +1,185 @@
+{
+  "extension_name": {
+    "message": "GitHub Nickname Wizard"
+  },
+  "extension_description": {
+    "message": "A browser extension that adds nicknames to GitHub usernames to make user identification easier."
+  },
+  "add_new_nickname": {
+    "message": "Add New Nickname"
+  },
+  "username_placeholder": {
+    "message": "GitHub Username (without @)"
+  },
+  "nickname_placeholder": {
+    "message": "Nickname (e.g. John Doe)"
+  },
+  "add_button": {
+    "message": "Add"
+  },
+  "search_nicknames": {
+    "message": "Search Nicknames"
+  },
+  "search_placeholder": {
+    "message": "Search by GitHub username or nickname..."
+  },
+  "custom_sort": {
+    "message": "Custom Sort"
+  },
+  "normal_sort": {
+    "message": "Normal Sort"
+  },
+  "save_order": {
+    "message": "Save Order"
+  },
+  "display_settings": {
+    "message": "Display Settings"
+  },
+  "show_add_button": {
+    "message": "Show \"Nickname\" button on user cards"
+  },
+  "show_add_button_description": {
+    "message": "When enabled, a \"Nickname\" button will be shown on user profile cards in Organization People lists."
+  },
+  "strict_mode_settings": {
+    "message": "Strict Mode Settings"
+  },
+  "enable_strict_mode": {
+    "message": "Enable Strict Mode (only run on trusted URLs)"
+  },
+  "strict_mode_description": {
+    "message": "When enabled, nicknames will only be shown on URLs that match the patterns below."
+  },
+  "url_pattern_placeholder": {
+    "message": "URL Pattern (e.g. https://github.com/your-org/*, *.github.com/your-org, regex:/your-org/.*/issues)"
+  },
+  "add_url_pattern_button": {
+    "message": "Add"
+  },
+  "trusted_url_patterns": {
+    "message": "Trusted URL Patterns"
+  },
+  "import_export_settings": {
+    "message": "Import/Export Settings"
+  },
+  "import_button": {
+    "message": "Import"
+  },
+  "export_button": {
+    "message": "Export"
+  },
+  "github_username": {
+    "message": "GitHub Username"
+  },
+  "display_nickname": {
+    "message": "Display Nickname"
+  },
+  "actions": {
+    "message": "Actions"
+  },
+  "edit_button": {
+    "message": "Edit"
+  },
+  "save_button": {
+    "message": "Save"
+  },
+  "cancel_button": {
+    "message": "Cancel"
+  },
+  "delete_button": {
+    "message": "Del"
+  },
+  "delete_selected": {
+    "message": "Delete Selected Items"
+  },
+  "no_nicknames": {
+    "message": "No nicknames configured"
+  },
+  "no_url_patterns": {
+    "message": "No URL patterns added yet. Add patterns to specify which GitHub URLs the extension should run on."
+  },
+  "add_nickname_title": {
+    "message": "Add Nickname"
+  },
+  "edit_nickname_title": {
+    "message": "Edit Nickname"
+  },
+  "nickname_added": {
+    "message": "Nickname added: @$1 → $2"
+  },
+  "nickname_saved": {
+    "message": "Nickname saved successfully."
+  },
+  "nickname_deleted": {
+    "message": "Nickname deleted successfully."
+  },
+  "confirm_delete": {
+    "message": "Are you sure you want to delete the nickname for @$1?"
+  },
+  "confirm_bulk_delete": {
+    "message": "Are you sure you want to delete $1 nickname(s)?\\n\\n$2"
+  },
+  "order_saved": {
+    "message": "Custom order saved successfully."
+  },
+  "settings_exported": {
+    "message": "Settings exported successfully."
+  },
+  "settings_imported": {
+    "message": "Settings imported successfully."
+  },
+  "error_nickname_empty": {
+    "message": "Display nickname cannot be empty"
+  },
+  "error_nickname_length": {
+    "message": "Display nickname must be 100 characters or less"
+  },
+  "error_nickname_content": {
+    "message": "Display nickname contains potentially dangerous content"
+  },
+  "error_username_empty": {
+    "message": "Please enter a GitHub username"
+  },
+  "error_url_pattern_empty": {
+    "message": "URL pattern cannot be empty"
+  },
+  "error_url_pattern_length": {
+    "message": "URL pattern must be 1000 characters or less"
+  },
+  "error_invalid_regex": {
+    "message": "Invalid regular expression: $1"
+  },
+  "error_duplicate_pattern": {
+    "message": "This URL pattern already exists."
+  },
+  "error_import_format": {
+    "message": "Invalid settings file format."
+  },
+  "error_import_nickname": {
+    "message": "Invalid display nickname for user $1: $2"
+  },
+  "error_file_select": {
+    "message": "Please select a settings file."
+  },
+  "error_export": {
+    "message": "Failed to export settings: $1"
+  },
+  "error_import": {
+    "message": "Failed to import settings: $1"
+  },
+  "language_settings": {
+    "message": "Language Settings"
+  },
+  "language_auto": {
+    "message": "Auto (Browser default)"
+  },
+  "register_nickname_context": {
+    "message": "Register nickname for this username"
+  },
+  "missing_username": {
+    "message": "Username is missing"
+  },
+  "enter_nickname": {
+    "message": "Please enter a nickname"
+  }
+}

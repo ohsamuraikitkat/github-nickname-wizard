@@ -1,0 +1,185 @@
+{
+  "extension_name": {
+    "message": "GitHub Nickname Wizard"
+  },
+  "extension_description": {
+    "message": "GitHubのユーザー名にニックネームを付加して、ユーザーを識別しやすくするブラウザの拡張機能です。"
+  },
+  "add_new_nickname": {
+    "message": "新規ニックネーム追加"
+  },
+  "username_placeholder": {
+    "message": "GitHubユーザー名（@なし）"
+  },
+  "nickname_placeholder": {
+    "message": "ニックネーム（例: 山田 太郎）"
+  },
+  "add_button": {
+    "message": "追加"
+  },
+  "search_nicknames": {
+    "message": "ニックネーム検索"
+  },
+  "search_placeholder": {
+    "message": "GitHubユーザー名またはニックネームで検索..."
+  },
+  "custom_sort": {
+    "message": "カスタム並び順"
+  },
+  "normal_sort": {
+    "message": "通常並び順"
+  },
+  "save_order": {
+    "message": "並び順を保存"
+  },
+  "display_settings": {
+    "message": "表示設定"
+  },
+  "show_add_button": {
+    "message": "ユーザーカードに「Nickname」ボタンを表示"
+  },
+  "show_add_button_description": {
+    "message": "有効にすると、Organizationのメンバーリストでユーザープロフィールカードに「Nickname」ボタンが表示されます。"
+  },
+  "strict_mode_settings": {
+    "message": "厳格モード設定"
+  },
+  "enable_strict_mode": {
+    "message": "厳格モードを有効化（信頼できるURLでのみ実行）"
+  },
+  "strict_mode_description": {
+    "message": "有効にすると、以下のパターンに一致するURLでのみニックネームが表示されます。"
+  },
+  "url_pattern_placeholder": {
+    "message": "URLパターン（例: https://github.com/your-org/*, *.github.com/your-org, regex:/your-org/.*/issues）"
+  },
+  "add_url_pattern_button": {
+    "message": "追加"
+  },
+  "trusted_url_patterns": {
+    "message": "信頼できるURLパターン"
+  },
+  "import_export_settings": {
+    "message": "設定のインポート/エクスポート"
+  },
+  "import_button": {
+    "message": "インポート"
+  },
+  "export_button": {
+    "message": "エクスポート"
+  },
+  "github_username": {
+    "message": "GitHubユーザー名"
+  },
+  "display_nickname": {
+    "message": "表示ニックネーム"
+  },
+  "actions": {
+    "message": "操作"
+  },
+  "edit_button": {
+    "message": "編集"
+  },
+  "save_button": {
+    "message": "保存"
+  },
+  "cancel_button": {
+    "message": "キャンセル"
+  },
+  "delete_button": {
+    "message": "削除"
+  },
+  "delete_selected": {
+    "message": "選択項目を削除"
+  },
+  "no_nicknames": {
+    "message": "ニックネームが設定されていません"
+  },
+  "no_url_patterns": {
+    "message": "URLパターンがまだ追加されていません。拡張機能を実行するGitHubのURLを指定するためのパターンを追加してください。"
+  },
+  "add_nickname_title": {
+    "message": "ニックネームを追加"
+  },
+  "edit_nickname_title": {
+    "message": "ニックネームを編集"
+  },
+  "nickname_added": {
+    "message": "ニックネームを追加しました: @$1 → $2"
+  },
+  "nickname_saved": {
+    "message": "ニックネームを保存しました。"
+  },
+  "nickname_deleted": {
+    "message": "ニックネームを削除しました。"
+  },
+  "confirm_delete": {
+    "message": "@$1 のニックネームを削除してもよろしいですか？"
+  },
+  "confirm_bulk_delete": {
+    "message": "$1 件のニックネームを削除してもよろしいですか？\\n\\n$2"
+  },
+  "order_saved": {
+    "message": "カスタム並び順を保存しました。"
+  },
+  "settings_exported": {
+    "message": "設定をエクスポートしました。"
+  },
+  "settings_imported": {
+    "message": "設定をインポートしました。"
+  },
+  "error_nickname_empty": {
+    "message": "ニックネームを入力してください"
+  },
+  "error_nickname_length": {
+    "message": "ニックネームは100文字以内で入力してください"
+  },
+  "error_nickname_content": {
+    "message": "ニックネームに潜在的に危険なコンテンツが含まれています"
+  },
+  "error_username_empty": {
+    "message": "GitHubユーザー名を入力してください"
+  },
+  "error_url_pattern_empty": {
+    "message": "URLパターンを入力してください"
+  },
+  "error_url_pattern_length": {
+    "message": "URLパターンは1000文字以内で入力してください"
+  },
+  "error_invalid_regex": {
+    "message": "無効な正規表現です: $1"
+  },
+  "error_duplicate_pattern": {
+    "message": "このURLパターンは既に存在します。"
+  },
+  "error_import_format": {
+    "message": "無効な設定ファイル形式です。"
+  },
+  "error_import_nickname": {
+    "message": "ユーザー $1 の表示ニックネームが無効です: $2"
+  },
+  "error_file_select": {
+    "message": "設定ファイルを選択してください。"
+  },
+  "error_export": {
+    "message": "設定のエクスポートに失敗しました: $1"
+  },
+  "error_import": {
+    "message": "設定のインポートに失敗しました: $1"
+  },
+  "language_settings": {
+    "message": "言語設定"
+  },
+  "language_auto": {
+    "message": "自動（ブラウザのデフォルト）"
+  },
+  "register_nickname_context": {
+    "message": "このユーザー名にニックネームを登録"
+  },
+  "missing_username": {
+    "message": "ユーザー名が不足しています"
+  },
+  "enter_nickname": {
+    "message": "ニックネームを入力してください"
+  }
+}
