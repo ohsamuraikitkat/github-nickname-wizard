@@ -14,7 +14,8 @@
     "storage",
     "activeTab",
     "contextMenus",
-    "windows"
+    "windows",
+    "alarms"
   ],
   "background": {
     "service_worker": "background.js"

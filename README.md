@@ -22,6 +22,7 @@ A browser extension that enhances GitHub by adding nicknames to usernames, makin
   * **One-click registration from user cards**: Add nicknames directly via the "Add nickname" button that appears on user profile hover cards
 * Easy management of existing nicknames (edit, delete)
 * Import/Export capabilities: Save your nickname mappings to a JSON file and import them later
+* Gist Synchronization: Share your nickname settings with team members via GitHub Gist and keep settings synchronized
 * Strict Mode: Restrict the extension to only run on trusted URLs with support for wildcards and regex patterns
 
 ---
@@ -52,6 +53,15 @@ A browser extension that enhances GitHub by adding nicknames to usernames, makin
 **Import/Export Settings:**
 1. Click "Export Settings" to save your current nicknames, custom sort order, and theme to a `config.json` file
 2. To import, click the file input area, select a previously exported JSON file, and click "Import Settings"
+
+**Gist Synchronization:**
+1. Click the extension icon in your browser toolbar to open the popup
+2. Go to the "Gist Sync Settings" section
+3. Create a GitHub Gist that contains your settings (you can export your settings first and use that content)
+4. Enter the Gist ID in the input field (the alphanumeric part from the Gist URL)
+5. Click "Sync Now" to synchronize your settings
+6. Optionally enable "Automatic synchronization" to keep your settings in sync automatically
+7. Share the Gist ID with your team members who can then use it to sync the same settings
 
 **Configuring Strict Mode:**
 1. Enable Strict Mode by toggling the checkbox in the "Strict Mode Settings" section of the popup UI

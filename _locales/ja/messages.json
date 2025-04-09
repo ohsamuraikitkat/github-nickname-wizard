@@ -181,5 +181,47 @@
   },
   "enter_nickname": {
     "message": "ニックネームを入力してください"
+  },
+  "gist_sync_settings": {
+    "message": "Gist同期設定"
+  },
+  "gist_id_placeholder": {
+    "message": "Gist IDを入力"
+  },
+  "sync_now_button": {
+    "message": "今すぐ同期"
+  },
+  "enable_auto_sync": {
+    "message": "自動同期を有効にする"
+  },
+  "auto_sync_description": {
+    "message": "有効にすると、設定が毎日自動的に同期されます。"
+  },
+  "last_synced": {
+    "message": "最終同期: $1"
+  },
+  "last_synced_never": {
+    "message": "最終同期: なし"
+  },
+  "sync_success": {
+    "message": "同期が完了しました"
+  },
+  "sync_error": {
+    "message": "同期に失敗しました: $1"
+  },
+  "gist_help_text": {
+    "message": "チームと設定を共有するには:"
+  },
+  "gist_help_step1": {
+    "message": "エクスポートボタンで設定をエクスポート"
+  },
+  "gist_help_step2": {
+    "message": "gist.github.comで新しいGistを作成"
+  },
+  "gist_help_step3": {
+    "message": "エクスポートしたJSONコンテンツを貼り付けてGistを作成"
+  },
+  "gist_help_step4": {
+    "message": "チームとGist IDを共有"
   }
 }

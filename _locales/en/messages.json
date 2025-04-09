@@ -181,5 +181,47 @@
   },
   "enter_nickname": {
     "message": "Please enter a nickname"
+  },
+  "gist_sync_settings": {
+    "message": "Gist Sync Settings"
+  },
+  "gist_id_placeholder": {
+    "message": "Enter Gist ID"
+  },
+  "sync_now_button": {
+    "message": "Sync Now"
+  },
+  "enable_auto_sync": {
+    "message": "Enable automatic synchronization"
+  },
+  "auto_sync_description": {
+    "message": "When enabled, settings will be automatically synchronized daily."
+  },
+  "last_synced": {
+    "message": "Last synchronized: $1"
+  },
+  "last_synced_never": {
+    "message": "Last synchronized: Never"
+  },
+  "sync_success": {
+    "message": "Synchronized successfully"
+  },
+  "sync_error": {
+    "message": "Synchronization failed: $1"
+  },
+  "gist_help_text": {
+    "message": "To share settings with your team:"
+  },
+  "gist_help_step1": {
+    "message": "Export your settings using the Export button"
+  },
+  "gist_help_step2": {
+    "message": "Create a new Gist at gist.github.com"
+  },
+  "gist_help_step3": {
+    "message": "Paste the exported JSON content and create the Gist"
+  },
+  "gist_help_step4": {
+    "message": "Share the Gist ID with your team"
   }
 }

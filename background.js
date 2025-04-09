@@ -4,6 +4,102 @@ function getMessage(key, substitutions = []) {
   return chrome.i18n.getMessage(key, substitutions);
 }
 
+// Gistからの同期処理
+async function syncWithGist() {
+  const { gistSettings } = await new Promise(resolve => {
+    chrome.storage.local.get(['gistSettings'], resolve);
+  });
+  
+  if (!gistSettings || !gistSettings.gistId) {
+    throw new Error('Gist IDが設定されていません');
+  }
+  
+  // Gistから設定を取得
+  const response = await fetch(`https://api.github.com/gists/${gistSettings.gistId}`);
+  
+  if (!response.ok) {
+    throw new Error(`Gistの取得に失敗: ${response.status} ${response.statusText}`);
+  }
+  
+  const gistData = await response.json();
+  
+  // Gistファイルからデータを抽出
+  const fileNames = Object.keys(gistData.files);
+  if (fileNames.length === 0) {
+    throw new Error('Gistにファイルが見つかりません');
+  }
+  
+  const fileName = fileNames.find(name => name.endsWith('.json')) || fileNames[0];
+  const fileContent = gistData.files[fileName].content;
+  
+  try {
+    const settings = JSON.parse(fileContent);
+    
+    // バージョンチェックと基本検証
+    if (!settings.version || !settings.mappings) {
+      throw new Error('無効な設定ファイル形式です');
+    }
+    
+    // 既存設定を取得して更新
+    const { nameMapping, customOrder, theme, strictMode } = await new Promise(resolve => {
+      chrome.storage.local.get(['nameMapping', 'customOrder', 'theme', 'strictMode'], resolve);
+    });
+    
+    // ニックネーム設定を更新
+    await new Promise(resolve => {
+      chrome.storage.local.set({
+        nameMapping: settings.mappings,
+        customOrder: settings.customOrder || customOrder,
+        theme: settings.theme || theme,
+        strictMode: settings.strictMode || strictMode,
+        gistSettings: {
+          ...gistSettings,
+          lastSyncTimestamp: new Date().toISOString(),
+          autoSync: {
+            ...gistSettings.autoSync,
+            lastCheck: new Date().toISOString()
+          }
+        }
+      }, resolve);
+    });
+    
+    // タブに通知を送信して更新を伝える
+    chrome.tabs.query({}, (tabs) => {
+      tabs.forEach(tab => {
+        if (tab.url && tab.url.startsWith('http')) {
+          chrome.tabs.sendMessage(tab.id, { action: "refreshNicknames" })
+            .catch(() => {}); // エラーを無視（コンテンツスクリプトがロードされていない場合など）
+        }
+      });
+    });
+    
+    return { success: true, message: '同期が完了しました' };
+  } catch (error) {
+    throw new Error(`設定の解析に失敗: ${error.message}`);
+  }
+}
+
+// 自動同期設定とアラーム登録
+function setupAutoSync() {
+  chrome.storage.local.get(['gistSettings'], (data) => {
+    const gistSettings = data.gistSettings || {};
+    
+    // 既存のアラームをクリア
+    chrome.alarms.clear('gistSyncAlarm');
+    
+    // 自動同期が有効で、Gist IDが設定されている場合のみアラームを設定
+    if (gistSettings.autoSync?.enabled && gistSettings.gistId) {
+      // 固定で24時間ごとの同期を設定
+      chrome.alarms.create('gistSyncAlarm', {
+        delayInMinutes: 1, // 初回は1分後に実行
+        periodInMinutes: 24 * 60 // 24時間（1日）
+      });
+      
+      console.log('自動同期スケジュール設定: 毎日');
+    }
+  });
+}
+
 // コンテキストメニューの作成
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -71,6 +167,40 @@ chrome.runtime.onStartup.addListener(async () => {
   logDebug(`拡張機能起動。言語設定: ${currentLanguage}`);
 });
 
+// アラームリスナー
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'gistSyncAlarm') {
+    syncWithGist()
+      .then(result => {
+        console.log('自動同期完了:', result);
+      })
+      .catch(error => {
+        console.error('自動同期エラー:', error);
+      });
+  }
+});
+
+// 拡張機能起動時に自動同期設定を構成
+chrome.runtime.onStartup.addListener(() => {
+  setupAutoSync();
+  
+  // 起動時に自動同期が有効なら即時実行
+  chrome.storage.local.get(['gistSettings'], (data) => {
+    const gistSettings = data.gistSettings || {};
+    if (gistSettings.autoSync?.enabled && gistSettings.gistId) {
+      syncWithGist()
+        .catch(error => console.error('起動時同期エラー:', error));
+    }
+  });
+});
+
+// 設定変更リスナー
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && changes.gistSettings) {
+    setupAutoSync();
+  }
+});
+
 // 言語設定変更を全タブに通知
 async function broadcastLanguageChange(newLocale) {
   logDebug(`言語変更を全タブに通知: ${newLocale}`);
@@ -110,6 +240,25 @@ async function broadcastLanguageChange(newLocale) {
 // メッセージ処理
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   logDebug(`メッセージを受信: ${JSON.stringify(message)}`);
+  
+  // Gist同期メッセージの処理
+  if (message.action === "syncWithGist") {
+    const gistId = message.gistId;
+    if (!gistId) {
+      sendResponse({ success: false, error: 'Gist IDが指定されていません' });
+      return true;
+    }
+    
+    syncWithGist()
+      .then(result => {
+        sendResponse({ success: true, message: result.message });
+      })
+      .catch(error => {
+        sendResponse({ success: false, error: error.message });
+      });
+      
+    return true; // 非同期応答を許可
+  }
   
   // 言語変更メッセージを処理
   if (message.action === "changeLanguage") {

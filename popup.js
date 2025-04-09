@@ -20,8 +20,25 @@ const urlPatternsList = document.getElementById('urlPatternsList');
 // ユーザーカードボタン設定関連の要素
 const userCardButtonToggle = document.getElementById('userCardButtonToggle');
 
+// Gist同期関連の要素
+const gistIdInput = document.getElementById('gistIdInput');
+const syncWithGistButton = document.getElementById('syncWithGist');
+const autoSyncToggle = document.getElementById('autoSyncToggle');
+const lastSyncTimeElement = document.getElementById('lastSyncTime');
+const syncStatusMessageElement = document.getElementById('syncStatusMessage');
+
 // 言語セレクター関連の要素（DOMContentLoadedで取得するよう変更）
 let languageSelectorContainer;
+
+// Gist設定を管理
+let gistSettings = {
+  gistId: '',
+  lastSyncTimestamp: null,
+  autoSync: {
+    enabled: false,
+    lastCheck: null
+  }
+};
 
 // ソート状態を管理
 let sortState = {
@@ -677,6 +694,24 @@ function render() {
   });
 }
 
+// ストレージから最新のニックネームデータを取得し、リストを更新する関数
+async function refreshNameMappingList() {
+  try {
+    // 最新のデータを取得
+    const { nameMapping } = await new Promise(resolve => {
+      chrome.storage.local.get(['nameMapping'], resolve);
+    });
+    
+    // リストを更新
+    renderList(nameMapping || {});
+    
+    return true;
+  } catch (error) {
+    console.error('ニックネームリストの更新に失敗:', error);
+    return false;
+  }
+}
+
 // ユーザーカードボタンの切り替え
 userCardButtonToggle.addEventListener('change', () => {
   userCardButtonSettings.enabled = userCardButtonToggle.checked;
@@ -750,8 +785,49 @@ function changeLanguage(newLocale) {
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM content loaded');
   
-  // 現在の言語を確認
-  chrome.storage.local.get('language', (data) => {
+  // すべての設定を一度に取得
+  chrome.storage.local.get(['nameMapping', 'customOrder', 'theme', 'strictMode', 'language', 'gistSettings', 'userCardButtonSettings'], (data) => {
+    console.log('読み込まれた設定:', data);
+    
+    // マッピングデータを読み込んでレンダリング
+    if (data.nameMapping) {
+      renderList(data.nameMapping);
+    } else {
+      // 初回表示時に空のリストを表示
+      renderList({});
+    }
+    
+    // カスタム順序の設定
+    if (data.customOrder) {
+      customOrder = data.customOrder;
+    }
+    
+    // テーマの設定（すでに setTheme 関数が別の場所で呼ばれているので削除）
+    
+    // 厳格モード設定の読み込み
+    if (data.strictMode) {
+      strictModeSettings = data.strictMode;
+      strictModeToggle.checked = strictModeSettings.enabled;
+      renderUrlPatterns();
+    }
+    
+    // ユーザーカードボタン設定の読み込み
+    if (data.userCardButtonSettings) {
+      userCardButtonSettings = data.userCardButtonSettings;
+      userCardButtonToggle.checked = userCardButtonSettings.enabled;
+    }
+    
+    // Gist設定の読み込み
+    if (data.gistSettings) {
+      gistSettings = data.gistSettings;
+      // Gist UI の初期化
+      initGistUI();
+    } else {
+      // Gist設定がない場合でもUIは初期化
+      initGistUI();
+    }
+    
+    // 現在の言語を確認
     const currentLanguage = data.language || 'auto';
     console.log(`現在の言語設定: ${currentLanguage}`);
     
@@ -781,29 +857,111 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// 初期化 - 保存された設定の読み込み
-chrome.storage.local.get(['nameMapping', 'customOrder', 'strictMode', 'userCardButtonSettings', 'language'], (data) => {
-  // ニックネームマッピングとカスタムソート順の読み込み
-  if (data.customOrder) {
-    customOrder = data.customOrder;
-  }
-  
-  // 厳格モード設定の読み込み
-  if (data.strictMode) {
-    strictModeSettings = data.strictMode;
-    strictModeToggle.checked = strictModeSettings.enabled;
-  }
-  
-  // ユーザーカードボタン設定の読み込み
-  if (data.userCardButtonSettings) {
-    userCardButtonSettings = data.userCardButtonSettings;
-    userCardButtonToggle.checked = userCardButtonSettings.enabled;
+// 最終同期時間の表示を更新
+function updateLastSyncTime() {
+  if (gistSettings.lastSyncTimestamp) {
+    const date = new Date(gistSettings.lastSyncTimestamp);
+    const formattedDate = new Intl.DateTimeFormat(navigator.language, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
+    
+    lastSyncTimeElement.textContent = i18n.getMessage('last_synced', [formattedDate]) || `最終同期: ${formattedDate}`;
   } else {
-    // デフォルトはオン
-    userCardButtonToggle.checked = true;
+    lastSyncTimeElement.textContent = i18n.getMessage('last_synced_never') || '最終同期: なし';
+  }
+}
+
+// 自動同期設定の保存
+function saveAutoSyncSettings() {
+  chrome.storage.local.set({
+    gistSettings: {
+      ...gistSettings,
+      autoSync: {
+        ...gistSettings.autoSync,
+        enabled: autoSyncToggle.checked
+      }
+    }
+  });
+}
+
+// Gist関連UIの初期化
+function initGistUI() {
+  // Gist IDの設定
+  if (gistSettings.gistId) {
+    gistIdInput.value = gistSettings.gistId;
   }
   
-  // 初期描画
-  renderList(data.nameMapping || {});
-  renderUrlPatterns();
-});
+  // 自動同期トグルの設定
+  autoSyncToggle.checked = gistSettings.autoSync?.enabled || false;
+  
+  // 最終同期時間の更新
+  updateLastSyncTime();
+  
+  // 手動同期ボタンのイベントリスナー
+  syncWithGistButton.addEventListener('click', syncWithGistAction);
+  
+  // 自動同期トグルのイベントリスナー
+  autoSyncToggle.addEventListener('change', saveAutoSyncSettings);
+}
+
+// Gist同期処理
+async function syncWithGistAction() {
+  try {
+    // Gist IDを取得して設定
+    const gistId = gistIdInput.value.trim();
+    if (!gistId) {
+      throw new Error(i18n.getMessage('error_gist_id_empty') || 'Gist IDを入力してください');
+    }
+    
+    // 同期処理中のUI状態を更新
+    syncWithGistButton.disabled = true;
+    syncStatusMessageElement.textContent = i18n.getMessage('syncing') || '同期中...';
+    
+    // Gist設定を更新
+    gistSettings.gistId = gistId;
+    
+    // バックグラウンドスクリプトに同期リクエスト送信
+    const response = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(
+        { action: 'syncWithGist', gistId },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+          } else {
+            resolve(response);
+          }
+        }
+      );
+    });
+    
+    if (!response || !response.success) {
+      throw new Error(response?.error || i18n.getMessage('sync_error_unknown') || '同期エラー');
+    }
+    
+    // 設定を更新
+    gistSettings.lastSyncTimestamp = new Date().toISOString();
+    
+    // 保存して、自動同期の設定も適用
+    await new Promise(resolve => {
+      chrome.storage.local.set({ 
+        gistSettings: gistSettings
+      }, resolve);
+    });
+    
+    // 同期成功メッセージ
+    syncStatusMessageElement.textContent = i18n.getMessage('sync_success') || '同期が完了しました';
+    updateLastSyncTime();
+    
+    // 最新のデータで確実にリストを更新
+    await refreshNameMappingList();
+  } catch (error) {
+    console.error('Gist同期エラー:', error);
+    syncStatusMessageElement.textContent = i18n.getMessage('sync_error', [error.message]) || `同期エラー: ${error.message}`;
+  } finally {
+    syncWithGistButton.disabled = false;
+  }
+}

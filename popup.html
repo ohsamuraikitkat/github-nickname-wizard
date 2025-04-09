@@ -517,6 +517,41 @@
   </div>
 
   <div class="section">
+    <div class="section-title" data-i18n="gist_sync_settings">Gist Sync Settings</div>
+    
+    <div class="form-group" style="grid-template-columns: 1fr auto;">
+      <input type="text" id="gistIdInput" data-i18n-placeholder="gist_id_placeholder" placeholder="Enter Gist ID" />
+      <button id="syncWithGist" class="primary" data-i18n="sync_now_button">Sync Now</button>
+    </div>
+    
+    <div style="margin-top: 12px;">
+      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+        <input type="checkbox" id="autoSyncToggle" style="width: auto;">
+        <span data-i18n="enable_auto_sync">Enable automatic synchronization</span>
+      </label>
+      <p style="font-size: 12px; color: var(--empty-state-color); margin-top: 4px;" data-i18n="auto_sync_description">
+        When enabled, settings will be automatically synchronized daily.
+      </p>
+    </div>
+    
+    <div id="gistSyncStatus" style="font-size: 12px; margin-top: 12px; color: var(--empty-state-color);">
+      <div id="lastSyncTime" data-i18n="last_synced_never">Last synchronized: Never</div>
+      <div id="syncStatusMessage"></div>
+    </div>
+
+    <!-- ヘルプセクション -->
+    <div style="font-size: 12px; color: var(--empty-state-color); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color);">
+      <p data-i18n="gist_help_text">To share settings with your team:</p>
+      <ol>
+        <li data-i18n="gist_help_step1">Export your settings using the Export button</li>
+        <li data-i18n="gist_help_step2">Create a new Gist at <a href="https://gist.github.com" target="_blank">https://gist.github.com</a></li>
+        <li data-i18n="gist_help_step3">Paste the exported JSON content and create the Gist</li>
+        <li data-i18n="gist_help_step4">Share the Gist ID with your team</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="section">
     <div class="section-title" data-i18n="import_export_settings">Import/Export Settings</div>
     <input type="file" id="presetFile" accept=".json" />
     <div class="button-group">
