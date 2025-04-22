@@ -14,6 +14,7 @@ A browser extension that enhances GitHub by adding nicknames to usernames, makin
   * Repository Issue lists and avatar hovers
   * Repository Pull Request lists and avatar tooltips
   * Inside Issues and Pull Requests
+  * **Assignee dropdown menus** in issue sidebar
 
 **Management Features:**
 * Nickname addition methods:
@@ -107,6 +108,11 @@ github-nickname-wizard/
 ---
 
 ## 📝 Release History
+
+### v1.3.0 (2025-04-22)
+* Added nickname display in assignee dropdown menus in issue/PR sidebar
+* Improved DOM detection for better compatibility with GitHub UI changes
+* Optimized console logging for cleaner browser developer tools experience
 
 ### v1.2.0 (2025-03-30)
 * Added context menu functionality for direct nickname registration

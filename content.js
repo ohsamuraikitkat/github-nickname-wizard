@@ -211,6 +211,12 @@
     return /^\/orgs\/[^/]+\/(teams\/[^/]+|people(\/?$|\/[^/]+)?)(\/?$|\?)/.test(window.location.pathname);
   }
 
+  // --- Helper function to check if it's an issue or pull request page ---
+  function isIssueOrPrPage() {
+    // Matches /{owner}/{repo}/issues/{number} or /{owner}/{repo}/pull/{number}
+    return /^\/[^/]+\/[^/]+\/(issues|pull)\/\d+(\/?$|\?)/.test(window.location.pathname);
+  }
+
   // --- 元々のリンク置換処理 ---
   const injectNicknames = () => {
     // 厳格モードで適用すべきでない場合は何もしない
@@ -437,12 +443,468 @@
     });
   };
 
+  // --- DOMツリー内の全spanとテキストを検索するヘルパー関数 ---
+  const findUsernameElements = () => {
+    console.log('GitHub Nickname Wizard: 全スパン要素を検索中...');
+    
+    // すべてのspan要素を取得
+    const allSpans = document.querySelectorAll('span:not([data-nickname-injected])');
+    const usernameSpans = [];
+    
+    // 各spanのテキストコンテンツを調べて、GitHubユーザー名パターンに一致するものを探す
+    allSpans.forEach(span => {
+      const text = span.textContent.trim();
+      
+      // シンプルなユーザー名パターン（英数字とハイフンのみ）
+      if (/^[a-zA-Z0-9-]+$/.test(text) && text.length > 1) {
+        // まずマッピングに存在するか確認
+        if (mapping[text]) {
+          usernameSpans.push({
+            element: span,
+            username: text
+          });
+          console.log(`GitHub Nickname Wizard: ユーザー名らしきテキストを検出: ${text}`);
+        }
+      }
+    });
+    
+    return usernameSpans;
+  };
+
+  // --- Assigneeドロップダウン処理 - 直接要素ベースのアプローチ ---
+  const processAssigneeDropdown = () => {
+    // 厳格モードで適用すべきでない場合は何もしない
+    if (!shouldApplyNicknames()) return;
+    
+    // Issue/PRページ以外では処理しない
+    if (!isIssueOrPrPage()) return;
+
+    // コンソールログを削除
+    
+    // 方法1: 特定のクラスを持つspan要素を探す（提供されたパターン）
+    const specificLabelSelectors = [
+      // 提供されたパターン
+      '.prc-ActionList-ItemLabel-TmBhn:not([data-nickname-injected])',
+      // IDベースのパターン
+      '[id$="--label"]:not([data-nickname-injected])',
+      // より一般的な名前の一部
+      '[class*="ActionList"]:not([data-nickname-injected]) span:not([data-nickname-injected])',
+      '[class*="actionList"]:not([data-nickname-injected]) span:not([data-nickname-injected])',
+      // assigneeという単語を含むコンテナの中のspan
+      '[class*="assignee" i] span:not([data-nickname-injected])',
+      '[id*="assignee" i] span:not([data-nickname-injected])',
+      '[aria-label*="assignee" i] span:not([data-nickname-injected])',
+      // ドロップダウンメニュー内のspan
+      '[role="menu"] span:not([data-nickname-injected])',
+      '[role="listbox"] span:not([data-nickname-injected])',
+      '[role="combobox"] span:not([data-nickname-injected])'
+    ];
+    
+    let foundSpecificLabels = false;
+    
+    // 特定セレクタでの検索
+    specificLabelSelectors.forEach(selector => {
+      const labels = document.querySelectorAll(selector);
+      
+      if (labels.length > 0) {
+        // ログを最小限に抑制
+        foundSpecificLabels = true;
+        
+        labels.forEach(label => {
+          const text = label.textContent.trim();
+          const username = text.replace(/^@/, '');
+          
+          // ユーザー名が有効で、マッピングに存在する場合
+          if (username && mapping[username] && !text.includes(` ( ${mapping[username]} ) `)) {
+            // ログを最小限に抑制
+            label.textContent = `${username} ( ${mapping[username]} ) `;
+            label.setAttribute('data-nickname-injected', 'true');
+            // ログを最小限に抑制
+          }
+        });
+      }
+    });
+    
+    // 方法2: DOM全体から適切なユーザー名を持つspan要素を探す
+    if (!foundSpecificLabels) {
+      // ログを最小限に抑制
+      const usernameSpans = findUsernameElements();
+      
+      if (usernameSpans.length > 0) {
+        // ログを最小限に抑制
+        
+        usernameSpans.forEach(item => {
+          const { element, username } = item;
+          
+          // 親要素がassigneeに関連するかを判断
+          const isInAssigneeContext = (() => {
+            // 最大5階層まで親をたどる
+            let parent = element.parentElement;
+            for (let i = 0; i < 5 && parent; i++) {
+              // テキストコンテンツ、ID、クラス名などからassigneeっぽいか判断
+              const parentText = parent.textContent.toLowerCase();
+              const parentId = (parent.id || '').toLowerCase();
+              const parentClass = (parent.className || '').toLowerCase();
+              const parentAriaLabel = (parent.getAttribute('aria-label') || '').toLowerCase();
+              
+              if (
+                parentText.includes('assignee') ||
+                parentId.includes('assignee') ||
+                parentClass.includes('assignee') ||
+                parentAriaLabel.includes('assignee') ||
+                parentText.includes('担当者') ||
+                parent.getAttribute('role') === 'listbox' ||
+                parent.getAttribute('role') === 'menu' ||
+                parent.getAttribute('role') === 'combobox'
+              ) {
+                return true;
+              }
+              
+              parent = parent.parentElement;
+            }
+            return false;
+          })();
+          
+          // assigneeコンテキストにあるか、ドロップダウンが開いている状態（タイミング依存）なら処理
+          if (isInAssigneeContext) {
+            // ログを最小限に抑制
+            element.textContent = `${username} ( ${mapping[username]} ) `;
+            element.setAttribute('data-nickname-injected', 'true');
+          }
+        });
+      } else {
+        console.log('GitHub Nickname Wizard: ユーザー名に一致するスパン要素も見つかりませんでした');
+      }
+    }
+    
+    // 方法3: 旧来のセレクタパターン（以前のバージョンとの互換性のため）
+    const assigneeSelectors = [
+      // 新しいGitHubデザインのassigneeドロップダウン
+      '[data-testid="assignees-menu"] [role="listbox"] [role="option"]:not([data-nickname-injected])',
+      '.assignee-menu [role="listbox"] [role="option"]:not([data-nickname-injected])',
+      // 新UI React実装パターン
+      '[id*="assignee" i] [role="option"]:not([data-nickname-injected])',
+      '[id*="Assignee" i] [role="option"]:not([data-nickname-injected])',
+      '[class*="ActionList"]:not([data-nickname-injected])',
+      '[class*="actionList"]:not([data-nickname-injected])',
+      // 従来のデザインでのassigneeドロップダウン
+      '.sidebar-assignee .select-menu-list .select-menu-item:not([data-nickname-injected])',
+      // より一般的なセレクタ
+      '[aria-label*="assignee" i] [role="menu"] [role="menuitem"]:not([data-nickname-injected])',
+      '[aria-label*="Assignee" i] [role="menu"] [role="menuitem"]:not([data-nickname-injected])',
+      // さらに一般的なセレクタ
+      '.js-issues-sidebar-menu .select-menu-item:not([data-nickname-injected])',
+      '.js-issue-sidebar-form .select-menu-item:not([data-nickname-injected])',
+      // 直接リスト内の要素を対象
+      '.js-issue-sidebar-form li:not([data-nickname-injected])'
+    ];
+
+    // 各セレクタでドロップダウンアイテムを検索
+    let foundItems = false;
+    
+    assigneeSelectors.forEach(selector => {
+      const dropdownItems = document.querySelectorAll(selector);
+      
+      // ログを最小限に抑制しつつ検出状態は維持
+      if (dropdownItems.length > 0) {
+        foundItems = true;
+      }
+
+      dropdownItems.forEach(item => {
+        // アイテムが本当にユーザー関連かの確認（誤検出を減らす）
+        const isUserRelated = item.textContent.includes('@') || 
+                              item.querySelector('img.avatar') || 
+                              item.querySelector('[data-hovercard-type="user"]') ||
+                              item.hasAttribute('data-login');
+                              
+        if (!isUserRelated) {
+          // おそらくユーザー関連の項目ではない
+          return;
+        }
+
+        // ユーザー名を抽出するさまざまな方法を試す
+        let username = null;
+        
+        // 1. data-login属性からの抽出
+        if (item.hasAttribute('data-login')) {
+          username = item.getAttribute('data-login');
+          // ログを最小限に抑制
+        }
+        
+        // 2. hovercard-url属性からの抽出
+        if (!username && item.hasAttribute('data-hovercard-url')) {
+          const hovercardUrl = item.getAttribute('data-hovercard-url');
+          const match = hovercardUrl.match(/\/users\/([^/?]+)/);
+          if (match) {
+            username = match[1];
+            // ログを最小限に抑制
+          }
+        }
+        
+        // 3. 内部のホバーカード要素からの抽出
+        if (!username) {
+          const hovercardEl = item.querySelector('[data-hovercard-type="user"]');
+          if (hovercardEl && hovercardEl.hasAttribute('data-hovercard-url')) {
+            const hovercardUrl = hovercardEl.getAttribute('data-hovercard-url');
+            const match = hovercardUrl.match(/\/users\/([^/?]+)/);
+            if (match) {
+              username = match[1];
+              // ログを最小限に抑制
+            }
+          }
+        }
+        
+        // 4. ユーザー名を含む可能性のある要素からの抽出
+        if (!username) {
+          const userElements = item.querySelectorAll('.js-username, [data-hovercard-type="user"], .Link--primary, a[href^="/"]');
+          userElements.forEach(el => {
+            const text = el.textContent.trim().replace(/^@/, '');
+            if (/^[a-zA-Z0-9-]+$/.test(text)) {
+              username = text;
+              // ログを最小限に抑制
+            }
+          });
+        }
+        
+        // 5. アバター画像のalt属性からの抽出
+        if (!username) {
+          const avatarImg = item.querySelector('img.avatar, img.avatar-user');
+          if (avatarImg && avatarImg.hasAttribute('alt')) {
+            const alt = avatarImg.getAttribute('alt');
+            const cleanAlt = alt.trim().replace(/^@/, '');
+            if (/^[a-zA-Z0-9-]+$/.test(cleanAlt)) {
+              username = cleanAlt;
+              // ログを最小限に抑制
+            }
+          }
+        }
+        
+        // 6. aria-label属性からの抽出
+        if (!username && item.hasAttribute('aria-label')) {
+          const ariaLabel = item.getAttribute('aria-label');
+          const match = ariaLabel.match(/@([a-zA-Z0-9-]+)/);
+          if (match) {
+            username = match[1];
+            // ログを最小限に抑制
+          }
+        }
+        
+        // 7. テキストコンテンツからの抽出
+        if (!username) {
+          const text = item.textContent.trim();
+          const match = text.match(/@([a-zA-Z0-9-]+)/);
+          if (match) {
+            username = match[1];
+            // ログを最小限に抑制
+          } else {
+            // @がない場合、単純なユーザー名のパターンを探す
+            const simpleMatch = text.match(/\b([a-zA-Z0-9-]+)\b/);
+            if (simpleMatch && !text.includes('(') && !text.includes(')')) {
+              // これは誤検出のリスクが高いが、他に方法がない場合の最終手段
+              username = simpleMatch[1];
+              // ログを最小限に抑制
+            }
+          }
+        }
+        
+        // ニックネームを追加
+        if (username && mapping[username] && !item.textContent.includes(` ( ${mapping[username]} ) `)) {
+          // ログを最小限に抑制
+          
+          // まず、すべてのテキストノードを検索
+          let targetFound = false;
+          
+          // 関数: 要素内のすべてのテキストノードを見つけ、ユーザー名を含むものを処理
+          const processTextNodes = (element) => {
+            const walker = document.createTreeWalker(
+              element, 
+              NodeFilter.SHOW_TEXT, 
+              { acceptNode: node => node.textContent.trim().length > 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT }
+            );
+            
+            let currentNode;
+            while ((currentNode = walker.nextNode())) {
+              const text = currentNode.textContent;
+              if (text.includes(`@${username}`) || text.match(new RegExp(`\\b${username}\\b`))) {
+                if (text.includes(`@${username}`)) {
+                  currentNode.textContent = text.replace(
+                    `@${username}`,
+                    `@${username} ( ${mapping[username]} ) `
+                  );
+                } else {
+                  currentNode.textContent = text.replace(
+                    new RegExp(`\\b${username}\\b`),
+                    `${username} ( ${mapping[username]} ) `
+                  );
+                }
+                targetFound = true;
+              }
+            }
+          };
+          
+          // テキストノードを処理
+          processTextNodes(item);
+          
+          // テキストノードが見つからない/処理できない場合のフォールバック
+          if (!targetFound) {
+            // span要素やその他のユーザー名表示要素を探して処理
+            const userEls = item.querySelectorAll('span, a, .js-username, [data-hovercard-type="user"]');
+            userEls.forEach(el => {
+              if (el.textContent.includes(username) || el.textContent.includes(`@${username}`)) {
+                if (el.textContent.includes(`@${username}`)) {
+                  el.textContent = el.textContent.replace(
+                    `@${username}`,
+                    `@${username} ( ${mapping[username]} ) `
+                  );
+                } else {
+                  el.textContent = el.textContent.replace(
+                    new RegExp(`\\b${username}\\b`),
+                    `${username} ( ${mapping[username]} ) `
+                  );
+                }
+                targetFound = true;
+              }
+            });
+          }
+          
+          // 処理が成功したら、マークを設定
+          if (targetFound) {
+            item.setAttribute('data-nickname-injected', 'true');
+            // ログを最小限に抑制
+          } else {
+            // ログを最小限に抑制
+            
+            // 最終手段：項目全体を再構築
+            try {
+              const originalHTML = item.innerHTML;
+              if (item.textContent.includes(username)) {
+                const newHTML = originalHTML.replace(
+                  new RegExp(`(${username})(?![^<>]*>)`, 'g'),
+                  `$1 ( ${mapping[username]} ) `
+                );
+                if (newHTML !== originalHTML) {
+                  item.innerHTML = newHTML;
+                  item.setAttribute('data-nickname-injected', 'true');
+                  // ログを最小限に抑制
+                }
+              }
+            } catch (err) {
+              console.error('innerHTML置換エラー:', err);
+            }
+          }
+        }
+      });
+    });
+    
+    if (!foundItems) {
+      // ログを最小限に抑制
+    }
+  };
+
+  // --- ポーリング方式で定期的に全spanをスキャンする関数 ---
+  const setupPollingForAssignees = () => {
+    if (!shouldApplyNicknames() || !isIssueOrPrPage()) return;
+    
+    // コンソールログを削除
+    
+    // すべてのテキストノードをスキャン
+    const scanAllTextNodes = () => {
+      if (!shouldApplyNicknames() || !isIssueOrPrPage()) return;
+      
+      // ドキュメント内のすべてのテキストノードを取得
+      const allTextNodes = [];
+      const walk = document.createTreeWalker(
+        document.body,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+      );
+      
+      while (walk.nextNode()) {
+        const node = walk.currentNode;
+        const text = node.textContent.trim();
+        
+        // テキストノードに有効なテキストが含まれている場合のみ処理
+        if (text.length > 0) {
+          // マッピングに存在するユーザー名かどうかをチェック
+          Object.keys(mapping).forEach(username => {
+            // ドロップダウンメニューの一部かどうかを確認する要素
+            if (
+              (text === username || text === `@${username}`) && 
+              !node.parentElement.hasAttribute('data-nickname-injected')
+            ) {
+              // この要素がAssigneeドロップダウンの一部かどうかをチェック
+              let isAssigneeContext = false;
+              let element = node.parentElement;
+              
+              // 7階層まで親をたどってAssignee関連かチェック
+              for (let i = 0; i < 7 && element; i++) {
+                const parentHTML = element.outerHTML?.toLowerCase() || '';
+                if (
+                  parentHTML.includes('assignee') || 
+                  parentHTML.includes('担当') || 
+                  parentHTML.includes('assign to') ||
+                  parentHTML.includes('role="listbox"') ||
+                  parentHTML.includes('role="menu"') ||
+                  parentHTML.includes('role="option"') ||
+                  parentHTML.includes('role="combobox"') ||
+                  parentHTML.includes('listbox')
+                ) {
+                  isAssigneeContext = true;
+                  break;
+                }
+                element = element.parentElement;
+              }
+              
+              // Assigneeコンテキストと判断された場合、ニックネームを挿入
+              if (isAssigneeContext) {
+                // ログを最小限に抑制
+                const nickname = mapping[username];
+                
+                // ニックネームが既に挿入されていないか確認
+                if (!node.textContent.includes(` ( ${nickname} ) `)) {
+                  // テキストノードの内容を置換
+                  if (text === `@${username}`) {
+                    node.textContent = `@${username} ( ${nickname} ) `;
+                  } else {
+                    node.textContent = `${username} ( ${nickname} ) `;
+                  }
+                  
+                  // 親要素にマークを付ける
+                  node.parentElement.setAttribute('data-nickname-injected', 'true');
+                  // ログを最小限に抑制
+                }
+              }
+            }
+          });
+        }
+      }
+    };
+    
+    // 1秒ごとにスキャン（UIの変更を検出するため）
+    const pollingInterval = setInterval(scanAllTextNodes, 1000);
+    
+    // ページ遷移時にクリア
+    window.addEventListener('beforeunload', () => {
+      clearInterval(pollingInterval);
+    });
+    
+    // 初回実行
+    scanAllTextNodes();
+  };
+
   // --- 初期実行 ---
   if (shouldApplyNicknames()) {
     processAvatars();
     injectNicknames();
     processOrgMemberLinks(mapping);
     processUserCards();
+    processAssigneeDropdown();
+    
+    // ポーリングを開始
+    setTimeout(() => {
+      setupPollingForAssignees();
+    }, 500);
   }
 
   // --- MutationObserver 設定 ---
@@ -454,12 +916,24 @@
     let runAvatarProcessing = false;
     let runOrgMemberProcessing = false;
     let runUserCardProcessing = false;
+    let runAssigneeDropdownProcessing = false;
+
+    // より効果的な検出のため、クリックイベントで実行するフラグも追加
+    let potentialDropdownTrigger = false;
 
     for(const mutation of mutationsList) {
+        // 新しいspan要素が追加されたら、それが重要な可能性があるため記録
+        let spanAdded = false;
+        
         if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
             runOriginalInject = true;
             mutation.addedNodes.forEach(node => {
                 if (node.nodeType === Node.ELEMENT_NODE) {
+                    // spanが追加された場合、assigneeドロップダウンの可能性がある
+                    if (node.tagName === 'SPAN' || node.querySelector('span')) {
+                        spanAdded = true;
+                    }
+                    
                     if (node.matches('img[data-component="Avatar"]') || node.querySelector('img[data-component="Avatar"]')) {
                         runAvatarProcessing = true;
                     }
@@ -471,14 +945,43 @@
                         node.querySelector('.Popover-message, [data-hovercard-type="user"], .Overlay, .Profile-card')) {
                         runUserCardProcessing = true;
                     }
+                    // Assigneeドロップダウン関連の要素が追加された場合 - セレクタ拡張
+                    if (isIssueOrPrPage() && (
+                        node.matches('[role="listbox"], [role="menu"], .select-menu-list, .select-menu-modal, .SelectMenu-modal, .SelectMenu-list, [id*="assignee"], [id*="Assignee"], [class*="assignee"], [class*="Assignee"]') ||
+                        node.querySelector('[role="listbox"], [role="menu"], .select-menu-list, .SelectMenu-modal, .SelectMenu-list, [id*="assignee"], [id*="Assignee"], [class*="assignee"], [class*="Assignee"]') ||
+                        node.matches('[role="option"], [role="menuitem"], .select-menu-item, .SelectMenu-item') ||
+                        node.querySelector('[role="option"], [role="menuitem"], .select-menu-item, .SelectMenu-item') ||
+                        // Reactで使われる命名パターンに対応
+                        node.matches('[class*="ActionList"], [class*="actionList"]') ||
+                        node.querySelector('[class*="ActionList"], [class*="actionList"]') ||
+                        // 特定のクラス名 (ユーザーが提供したパターン)
+                        node.matches('.prc-ActionList-ItemLabel-TmBhn, [id$="--label"]') ||
+                        node.querySelector('.prc-ActionList-ItemLabel-TmBhn, [id$="--label"]')
+                    )) {
+                        runAssigneeDropdownProcessing = true;
+                    }
+                    
+                    // メニュー表示のトリガーとなる可能性のある要素が追加された場合
+                    if (isIssueOrPrPage() && (
+                        node.matches('.js-issue-sidebar-form, .js-issues-sidebar-menu, .sidebar-assignee, [data-testid="assignees-menu"]') ||
+                        node.querySelector('.js-issue-sidebar-form, .js-issues-sidebar-menu, .sidebar-assignee, [data-testid="assignees-menu"]')
+                    )) {
+                        potentialDropdownTrigger = true;
+                    }
                 }
             });
+            
+            // issue詳細ページでspanが追加されたらドロップダウンの可能性があるとみなす
+            if (spanAdded && isIssueOrPrPage()) {
+                runAssigneeDropdownProcessing = true;
+            }
         }
         else if (mutation.type === 'characterData') {
              runOriginalInject = true;
         }
         // Exit early if all flags are set
-        if (runOriginalInject && runAvatarProcessing && runOrgMemberProcessing && runUserCardProcessing) break;
+        if (runOriginalInject && runAvatarProcessing && runOrgMemberProcessing && 
+            runUserCardProcessing && runAssigneeDropdownProcessing) break;
     }
 
     if (runAvatarProcessing) {
@@ -492,6 +995,16 @@
     }
     if (runUserCardProcessing) {
         processUserCards();
+    }
+    if (runAssigneeDropdownProcessing || potentialDropdownTrigger) {
+        // Assigneeドロップダウンの処理は、わずかに遅延させて実行
+        // これはDOMがレンダリングを完了する時間を確保するため
+        setTimeout(() => {
+            processAssigneeDropdown();
+            
+            // 短い間隔で複数回処理を試みることで、検出漏れを防ぐ
+            setTimeout(processAssigneeDropdown, 300);
+        }, 100);
     }
   };
   
@@ -507,16 +1020,94 @@
     // 厳格モードチェックはハンドラ内で行う
     handleDelegatedAssigneeHover(event);
   }, true);
+  
+  // Assigneeドロップダウンのためのクリック検知 - 下記のいずれかがクリックされたらドロップダウンが表示された可能性がある
+  document.body.addEventListener('click', (event) => {
+    if (!shouldApplyNicknames()) return;
+    if (!isIssueOrPrPage()) return;
+    
+    // クリックされた要素または親要素がAssignee関連のトリガーかどうかを確認
+    const isAssigneeTrigger = (element) => {
+      if (!element) return false;
+      
+      // トリガーとなりうる要素のセレクタ
+      const triggerSelectors = [
+        '.js-issue-sidebar-form',
+        '.sidebar-assignee',
+        '[data-testid="assignees-menu"]',
+        '[aria-label*="assignee"]',
+        '[aria-label*="Assignee"]',
+        '.assignee-link',
+        '.js-issues-sidebar-menu',
+        // アイコンボタンなども考慮
+        '.sidebar-assignee svg',
+        '[data-testid="assignees-menu"] button',
+        // 新UIの要素も追加
+        '[id*="assignee"]',
+        '[id*="Assignee"]',
+        '[class*="assignee"]',
+        '[class*="Assignee"]',
+        // 汎用的なドロップダウントリガーも含める
+        'button[aria-haspopup="true"]',
+        '[role="combobox"]'
+      ];
+      
+      // 要素自体がセレクタにマッチするか確認
+      const isDirectMatch = triggerSelectors.some(selector => 
+        element.matches && element.matches(selector)
+      );
+      
+      if (isDirectMatch) return true;
+      
+      // 親要素がセレクタにマッチするか確認 (2段階まで)
+      const parent = element.parentElement;
+      if (parent) {
+        const isParentMatch = triggerSelectors.some(selector => 
+          parent.matches && parent.matches(selector)
+        );
+        
+        if (isParentMatch) return true;
+        
+        const grandparent = parent.parentElement;
+        if (grandparent) {
+          return triggerSelectors.some(selector => 
+            grandparent.matches && grandparent.matches(selector)
+          );
+        }
+      }
+      
+      return false;
+    };
+    
+    // クリックされた要素かその親がAssignee関連のトリガーかチェック
+    if (isAssigneeTrigger(event.target)) {
+      // ログを最小限に抑制
+      
+      // ドロップダウンの表示に時間がかかる場合があるため、複数回遅延実行
+      setTimeout(() => {
+        processAssigneeDropdown();
+      }, 100);
+      
+      setTimeout(() => {
+        processAssigneeDropdown();
+      }, 300);
+      
+      setTimeout(() => {
+        processAssigneeDropdown();
+      }, 600);
+    }
+  });
 
   // --- 設定変更のリスナー ---
   // エラーハンドリングを強化：メッセージリスナーは一度だけ追加
   const messageHandler = (message, sender, sendResponse) => {
     try {
-      console.log('Content script received message:', message);
+      // デバッグ時のみ有効にするログ
+      // console.log('Content script received message:', message);
       
       // 言語変更メッセージは処理しない（ボタンテキストは固定）
       if (message.action === 'languageChanged') {
-        console.log('Language change detected, no UI updates needed for fixed English buttons');
+        // ログを最小限に抑制
         sendResponse({ success: true });
         return true;
       }
@@ -545,7 +1136,7 @@
       }
       // ユーザーカードボタン設定が更新された場合の処理
       else if (message.action === 'userCardButtonSettingsUpdated') {
-        console.log('User card button settings update received:', message);
+        // ログを最小限に抑制
         
         // 設定を更新
         userCardButtonEnabled = message.settings.enabled;
@@ -570,7 +1161,7 @@
       }
       // コンテキストメニューからニックネームが追加された場合の処理
       else if (message.action === 'refreshNicknames') {
-        console.log('Nickname update message received:', message);
+        // ログを最小限に抑制
         const username = message.username;
         const nickname = message.nickname;
         
@@ -579,7 +1170,7 @@
           try {
             // マッピングを更新
             chrome.storage.local.get('nameMapping', (data) => {
-              console.log('Retrieved latest mapping from storage:', data);
+              // ログを最小限に抑制
               mapping = data.nameMapping || {};
               
               // すでに処理済みの要素のマークを削除して再適用
@@ -591,21 +1182,33 @@
                   }
                 });
                 
-                // ツールチップのマークも削除
-                document.querySelectorAll('[data-tooltip-modified], [data-assignee-tooltip-modified], [data-nickname-button-added]').forEach(el => {
-                  el.removeAttribute('data-tooltip-modified');
-                  el.removeAttribute('data-assignee-tooltip-modified');
-                  el.removeAttribute('data-nickname-button-added');
-                });
+      // ツールチップのマークも削除
+      document.querySelectorAll('[data-tooltip-modified], [data-assignee-tooltip-modified], [data-nickname-button-added]').forEach(el => {
+        el.removeAttribute('data-tooltip-modified');
+        el.removeAttribute('data-assignee-tooltip-modified');
+        el.removeAttribute('data-nickname-button-added');
+      });
+      
+      // Assigneeドロップダウンとすべてのテキスト要素の処理済みマークを削除
+      try {
+        // より広いセレクタを使用
+        document.querySelectorAll('[data-nickname-injected]').forEach(el => {
+          el.removeAttribute('data-nickname-injected');
+        });
+      } catch (e) {
+        console.error('マーク削除中のエラー:', e);
+      }
                 
                 // 再処理
                 processAvatars();
                 injectNicknames();
                 processOrgMemberLinks(mapping);
                 processUserCards();
+                processAssigneeDropdown();
                 
                 // 成功メッセージをコンソールに表示
-                console.log(`GitHub Nickname Wizard: Nickname added - @${username} → ${nickname}`);
+                // 重要なログは残す
+                console.log(`GitHub Nickname Wizard: ニックネーム追加 - @${username} → ${nickname}`);
                 
                 // 応答を返す
                 sendResponse({ success: true, message: 'Nicknames updated' });
